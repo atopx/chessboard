@@ -13,8 +13,8 @@ pub struct Model {
 
 const CONFIDENCE_THRESHOLD: f32 = 0.7f32;
 const IOU_THRESHOLD: f32 = 0.5f32;
-const LABELS: [&str; 15] = [
-    "n", "b", "a", "k", "r", "c", "p", "R", "N", "A", "K", "B", "C", "P", "board",
+const LABELS: [char; 15] = [
+    'n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0',
 ];
 
 impl Model {

@@ -4,17 +4,25 @@ pub struct Detection {
     pub x1: f32,
     pub y0: f32,
     pub y1: f32,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
     pub confidence: f32,
-    pub label: &'static str,
+    pub label: char,
 }
 
 impl Detection {
-    pub fn new(x: f32, y: f32, w: f32, h: f32, label: &'static str, confidence: f32) -> Self {
+    pub fn new(x: f32, y: f32, w: f32, h: f32, label: char, confidence: f32) -> Self {
         Self {
             x0: x - w / 2.0,
             x1: x + w / 2.0,
             y0: y - h / 2.0,
             y1: y + h / 2.0,
+            x,
+            y,
+            w,
+            h,
             label,
             confidence,
         }

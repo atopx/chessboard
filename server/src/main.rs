@@ -1,20 +1,24 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Mutex;
 use std::thread;
-
+use tauri::{Manager, State};
+use tokio::sync::{mpsc, oneshot};
+use tokio::time::{interval, Duration};
 mod chess;
+mod common;
 mod engine;
-mod yolo;
+pub mod yolo;
 
 const MODEL_PATH: &str = "../libs/model.onnx";
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(app: tauri::AppHandle, name: &str) -> String {
-    let resurce_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
-    let model = yolo::Model::new(resurce_path).unwrap();
-    let window = chess::utils::get_windows(name).unwrap();
+    let model_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
+    let model = yolo::Model::new(model_path).unwrap();
+    let window = common::get_windows(name).unwrap();
     let image = window.capture_image().unwrap();
     let detections = model.predict(image).unwrap();
     let count = detections.len();
@@ -22,19 +26,62 @@ fn greet(app: tauri::AppHandle, name: &str) -> String {
     format!("detections count {}", count)
 }
 
-fn main() {
+/// 启动识别的Timer循环，并返回一个用于取消该Timer的发送者。
+pub async fn start_timer(interval_duration: Duration) -> mpsc::Sender<()> {
+    let (tx, mut rx) = mpsc::channel::<()>(1);
+
+    // 使用tokio::spawn来在后台运行Timer循环。
+    tokio::spawn(async move {
+        let mut interval = interval(interval_duration);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // 执行你的定时任务
+                    println!("Tick");
+                }
+                _ = rx.recv() => {
+                    // 接收到取消信号，退出循环
+                    break;
+                }
+            }
+        }
+    });
+
+    // 返回用于取消Timer的发送者。
+    tx
+}
+
+struct GobalHandle {
+    window: xcap::Window,
+    model: yolo::Model,
+    detect_rx: Mutex<Option<mpsc::Sender<()>>>,
+}
+
+#[tokio::main]
+async fn main() {
+    // 配置tokio运行环境
+    tauri::async_runtime::set(tokio::runtime::Handle::current());
+
     tauri::Builder::default()
         .setup(|app| {
             let (tx, rx): (Sender<String>, Receiver<String>) = channel();
             // let mut chess_board = ChessBoard::new();
+            let model_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
+            let model = yolo::Model::new(model_path).unwrap();
+            // let window = common::get_windows(name).unwrap();
+
+            // app.manage();
 
             thread::spawn(move || {
                 loop {
                     {
+                        // let image = window.capture_image().unwrap();
                         // todo 重复判断棋盘是否发生变化:
                         //   - 是 => 发送move事件到前端
                         //   - 是否需要分析:
                         //     - 是 => 发送fen到分析队列
+
                         unimplemented!();
                     }
                 }
