@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use super::chess;
 use super::yolo::detection::Detection;
-use tauri::async_runtime::block_on;
-use tokio::io::empty;
 use xcap::Window;
 
 pub enum ChessState {
@@ -43,7 +41,7 @@ impl Position {
     }
 }
 
-// 帮我实现这个对比函数, 返回值是发生变化的索引
+// 对比棋盘, 返回值是发生变化的索引
 pub fn diff_board(old_board: [[char; 9]; 10], new_board: [[char; 9]; 10]) -> Vec<(usize, usize)> {
     let mut diff_indices = Vec::new();
 
@@ -58,6 +56,7 @@ pub fn diff_board(old_board: [[char; 9]; 10], new_board: [[char; 9]; 10]) -> Vec
     diff_indices
 }
 
+// 黑色方时棋盘转换逻辑
 pub fn black_board_fen(board: [[char; 9]; 10]) -> String {
     let mut fen = String::new();
 
@@ -81,9 +80,11 @@ pub fn black_board_fen(board: [[char; 9]; 10]) -> String {
         fen.push('/');
     }
     fen.pop();
+    fen.push_str(" b");
     fen
 }
 
+// 红色方时棋盘转换逻辑
 pub fn red_board_fen(board: [[char; 9]; 10]) -> String {
     let mut fen = String::new();
     for row in &board {
@@ -105,7 +106,13 @@ pub fn red_board_fen(board: [[char; 9]; 10]) -> String {
         fen.push('/');
     }
     fen.pop();
+    fen.push_str(" w");
     fen
+}
+
+// 检测棋盘是否合法
+pub fn board_check(board: [[char; 9]; 10]) -> bool {
+    unimplemented!()
 }
 
 // board_to_map 棋盘数组转换为坐标模式
