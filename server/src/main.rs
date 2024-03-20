@@ -1,9 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use engine::Engine;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
 use std::thread;
-use tauri::{Manager, State};
+use tauri::{async_runtime, Manager, State};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval, Duration};
 mod chess;
@@ -24,6 +25,41 @@ fn greet(app: tauri::AppHandle, name: &str) -> String {
     let count = detections.len();
     println!("detections count {}", count);
     format!("detections count {}", count)
+}
+
+pub fn start_listen(app: &mut tauri::App, handle: &mut State<&mut GobalHandle>, name: &str) {
+    if let Some(cancel_rx) = &handle.cancel_rx {
+        // 取消原来的
+        cancel_rx.send(());
+        handle.cancel_rx = None;
+    }
+    let window = common::get_windows(name).unwrap();
+    let (tx, mut rx) = mpsc::channel::<()>(1);
+    // 启动新的线程
+    let config = handle.config.clone();
+    tokio::spawn(async move {
+        let mut interval = interval(config.interval);
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // 执行你的定时任务
+                    println!("Tick");
+                }
+                _ = rx.recv() => {
+                    // 接收到取消信号，退出循环
+                    break;
+                }
+            }
+        }
+    });
+    handle.cancel_rx = Some(tx);
+}
+
+pub fn stop_listen(app: &mut tauri::App, handle: &mut State<GobalHandle>) {
+    if let Some(cancel_rx) = &handle.cancel_rx {
+        // 取消原来的
+        cancel_rx.send(());
+    }
 }
 
 /// 启动识别的Timer循环，并返回一个用于取消该Timer的发送者。
@@ -52,10 +88,23 @@ pub async fn start_timer(interval_duration: Duration) -> mpsc::Sender<()> {
     tx
 }
 
-struct GobalHandle {
+struct DetectTimer {
     window: xcap::Window,
+    interval: Duration,
+    engine: Engine,
+    cancel: Receiver<()>,
+}
+
+#[derive(Clone, Copy)]
+struct Config {
+    interval: Duration,
+}
+
+struct GobalHandle {
+    // window: Mutex<Option<xcap::Window>>,
     model: yolo::Model,
-    detect_rx: Mutex<Option<mpsc::Sender<()>>>,
+    cancel_rx: Option<mpsc::Sender<()>>,
+    config: Config,
 }
 
 #[tokio::main]
@@ -70,8 +119,13 @@ async fn main() {
             let model_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
             let model = yolo::Model::new(model_path).unwrap();
             // let window = common::get_windows(name).unwrap();
-
-            // app.manage();
+            app.manage(GobalHandle {
+                model: model,
+                cancel_rx: todo!(),
+                config: Config {
+                    interval: Duration::from_millis(1000),
+                },
+            });
 
             thread::spawn(move || {
                 loop {

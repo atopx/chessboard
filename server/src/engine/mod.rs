@@ -33,7 +33,7 @@ pub enum QueryState {
     ServerInternalError, // 内部错误
 }
 
-struct Engine {
+pub struct Engine {
     pub sender: mpsc::Sender<String>,
     pub receiver: mpsc::Receiver<QueryRecords>,
     tx: mpsc::Sender<QueryRecords>,

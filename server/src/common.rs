@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::chess;
 use super::yolo::detection::Detection;
 use xcap::Window;
@@ -39,101 +37,6 @@ impl Position {
             value,
         }
     }
-}
-
-// 对比棋盘, 返回值是发生变化的索引
-pub fn diff_board(old_board: [[char; 9]; 10], new_board: [[char; 9]; 10]) -> Vec<(usize, usize)> {
-    let mut diff_indices = Vec::new();
-
-    for i in 0..10 {
-        for j in 0..9 {
-            if old_board[i][j] != new_board[i][j] {
-                diff_indices.push((i, j));
-            }
-        }
-    }
-
-    diff_indices
-}
-
-// 黑色方时棋盘转换逻辑
-pub fn black_board_fen(board: [[char; 9]; 10]) -> String {
-    let mut fen = String::new();
-
-    for y in (0..10).rev() {
-        let mut empty = 0;
-        for x in (0..9).rev() {
-            let piece = board[y][x];
-            if piece == ' ' {
-                empty += 1;
-            } else {
-                if empty > 0 {
-                    fen.push_str(&empty.to_string());
-                    empty = 0;
-                }
-                fen.push(piece);
-            }
-        }
-        if empty > 0 {
-            fen.push_str(&empty.to_string());
-        }
-        fen.push('/');
-    }
-    fen.pop();
-    fen.push_str(" b");
-    fen
-}
-
-// 红色方时棋盘转换逻辑
-pub fn red_board_fen(board: [[char; 9]; 10]) -> String {
-    let mut fen = String::new();
-    for row in &board {
-        let mut empty = 0;
-        for &piece in row {
-            if piece == ' ' {
-                empty += 1;
-            } else {
-                if empty > 0 {
-                    fen.push_str(&empty.to_string());
-                    empty = 0;
-                }
-                fen.push(piece);
-            }
-        }
-        if empty > 0 {
-            fen.push_str(&empty.to_string());
-        }
-        fen.push('/');
-    }
-    fen.pop();
-    fen.push_str(" w");
-    fen
-}
-
-// 检测棋盘是否合法
-pub fn board_check(board: [[char; 9]; 10]) -> bool {
-    unimplemented!()
-}
-
-// board_to_map 棋盘数组转换为坐标模式
-pub fn board_to_map(camp: chess::Camp, board: [[char; 9]; 10]) -> HashMap<&'static str, char> {
-    let base_board = if camp == chess::Camp::Red {
-        chess::RED_BOARD
-    } else {
-        chess::BLACK_BOARD
-    };
-
-    let mut positions = HashMap::new();
-
-    for row in 0..10 {
-        for col in 0..9 {
-            let v = board[row][col];
-            if v != ' ' {
-                positions.insert(base_board[row][col], v);
-            }
-        }
-    }
-    positions
 }
 
 // detections_to_board 识别结果转换为棋盘结构
@@ -177,45 +80,4 @@ pub fn detections_to_board(
         None => return Err("not board"),
     }
     Ok((camp, board))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_red_board_to_fen() {
-        let board = [
-            ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            [' ', 'c', ' ', ' ', ' ', ' ', ' ', 'c', ' '],
-            ['p', ' ', 'p', ' ', 'p', ' ', 'p', ' ', 'p'],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            ['P', ' ', 'P', ' ', 'P', ' ', 'P', ' ', 'P'],
-            [' ', 'C', ' ', ' ', 'C', ' ', ' ', ' ', ' '],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
-        ];
-        let expected_fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR";
-        assert_eq!(red_board_fen(board), expected_fen);
-    }
-
-    #[test]
-    fn test_black_board_to_fen() {
-        let board = [
-            ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            [' ', ' ', ' ', ' ', 'C', ' ', ' ', 'C', ' '],
-            ['P', ' ', 'P', ' ', 'P', ' ', 'P', ' ', 'P'],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            ['p', ' ', 'p', ' ', 'p', ' ', 'p', ' ', 'p'],
-            [' ', 'c', ' ', ' ', ' ', ' ', ' ', 'c', ' '],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
-        ];
-        let expected_fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR";
-        assert_eq!(black_board_fen(board), expected_fen);
-    }
 }
