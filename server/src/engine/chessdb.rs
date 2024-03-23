@@ -5,7 +5,7 @@ use super::{QueryRecords, QueryState};
 const URL: &str = "http://www.chessdb.cn/chessdb.php";
 const REFER: &str = "https://www.chessdb.cn/query/";
 const AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
-
+const SOURCE_CHESSDB: &str = "云库";
 pub async fn query(fen: &str) -> QueryRecords {
     let mut records = super::QueryRecords::default();
     let resp = reqwest::Client::new()
@@ -19,8 +19,7 @@ pub async fn query(fen: &str) -> QueryRecords {
     match resp {
         Ok(resp) => match resp.text().await.unwrap().as_str() {
             "" | "unknown" => records.state = QueryState::NotResult,
-            "invalid board" => records.state = QueryState::InvalidBoard,
-            "checkmate" | "stalemate" => records.checkmate = true,
+            "invalid board" | "checkmate" | "stalemate" => records.state = QueryState::InvalidBoard,
             text => {
                 for pair in text.split(',') {
                     let mut parts = pair.split(':');
@@ -35,8 +34,8 @@ pub async fn query(fen: &str) -> QueryRecords {
                         _ => {}
                     }
                 }
-                records.best = true;
-                records.source = super::Source::Chessdb;
+                records.state = QueryState::Success;
+                records.source = SOURCE_CHESSDB;
             }
         },
         Err(e) => {

@@ -46,8 +46,22 @@ pub struct QueryRecords {
 pub fn parse(text: &str) -> QueryRecords {}
 ```
 
-二进制命令文件`pikafish`
-请帮我写一个UCI(Universal Chess Interface)引擎的控制器，使用struct封装起来，初始化传入一个uci引擎的文件路径， 并有一些方法实现调用逻辑,比如setoption、position、go等核心指令, 此外还需要注意两点：1、整体使用的是tokio async。2、go(depth time)输入指令和消息的输出应该使用队列可以异步进行
+目前有一个UCI引擎`pikafish`, 请帮我写一个UCI(Universal Chess Interface)引擎的接口控制器，使用struct封装起来，初始化传入一个uci引擎的文件路径，控制器具备以下方法：
+```rust
+struct Engine {
+    ...
+}
+
+impl Engine {
+    pub fn new(path: &str) -> Self { ... }
+    fn command(args: fmt::Arguments) { ... }
+    fn read_line() -> String()
+    pub fn setoption(name: &str, value: T) { ... }
+    pub fn position(fen: &str) { ... }
+    pub fn go(depth: usize, movetime: usize) { ... }
+    pub fn ready() -> bool { ... }
+}
+```
 
 ```
 // 下面这里报错 mismatched types
@@ -56,5 +70,44 @@ pub fn parse(text: &str) -> QueryRecords {}
 UciEngineController {
     sender: tx,
     receiver: rx,
+}
+```
+
+帮我修复BUG问题
+```rust
+pub async fn start_listen(
+    app: &mut tauri::App,
+    handle: State<'static, Mutex<GobalHandle>>,
+    name: String,
+) -> Result<(), ()> {
+    let mut _handle = handle.lock().unwrap();
+    _handle.listen_window = listen::ListenWindow::new(name);
+
+    // 启动新的线程, 执行定时任务
+    let intervals = _handle.interval.clone(); // 先克隆出间隔时间
+    let listen_window = _handle.listen_window.clone();
+    let model = Arc::clone(&_handle.model);
+    let engine = Arc::clone(&_handle.engine);
+    tokio::spawn(async move {
+        let mut intervals = interval(intervals);
+        let mut window = listen_window.unwrap();
+        let pic: xcap::image::ImageBuffer<xcap::image::Rgba<u8>, Vec<u8>> = window.capture();
+        let origin_width = pic.width();
+        let origin_height = pic.height();
+        let boxes = model.predict(pic).unwrap();
+        let (x, y, w, h) = common::detections_bound(origin_width, origin_height, &boxes).unwrap();
+        window.set(x, y, w, h);
+        loop {
+            intervals.tick().await;
+            // BUG: borrow of moved value: `listen_window`
+            // move occurs because `listen_window` has type `std::option::Option<ListenWindow>`,
+            // which does not implement the `Copy` trait
+            if listen_window.is_none() {
+                break;
+            }
+        }
+    });
+
+    Ok(())
 }
 ```

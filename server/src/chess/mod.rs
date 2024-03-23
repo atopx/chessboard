@@ -20,6 +20,16 @@ pub enum Camp {
     Black,
 }
 
+impl Camp {
+    pub fn to_char(self) -> char {
+        match self {
+            Camp::None => '0',
+            Camp::Red => 'w',
+            Camp::Black => 'b',
+        }
+    }
+}
+
 const BLACK_VERTICALS: [char; 9] = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const RED_VERTICALS: [char; 9] = ['九', '八', '七', '六', '五', '四', '三', '二', '一'];
 
@@ -118,7 +128,6 @@ pub fn board_fen(board: [[char; 9]; 10]) -> String {
         fen.push('/');
     }
     fen.pop();
-    fen.push_str(" w");
     fen
 }
 
@@ -357,11 +366,11 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
             if mv.from_y < mv.to_y {
                 // 进
                 chinese.push('退');
-                chinese.push(verticals[0]);
+                chinese.push(verticals[8]);
             } else if mv.from_y > mv.to_y {
                 // 退
                 chinese.push('进');
-                chinese.push(verticals[0]);
+                chinese.push(verticals[8]);
             } else {
                 // 平
                 chinese.push('平');
@@ -374,11 +383,11 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
             if mv.from_y < mv.to_y {
                 // 退
                 chinese.push('进');
-                chinese.push(verticals[8]);
+                chinese.push(verticals[0]);
             } else if mv.from_y > mv.to_y {
                 // 进
                 chinese.push('退');
-                chinese.push(verticals[8]);
+                chinese.push(verticals[0]);
             } else {
                 // 平
                 chinese.push('平');

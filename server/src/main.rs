@@ -1,163 +1,90 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use engine::Engine;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Mutex;
-use std::thread;
-use tauri::{async_runtime, Manager, State};
-use tokio::sync::{mpsc, oneshot};
+// 修改后的代码
+use std::sync::{Arc, Mutex};
+use tauri::{Manager, State};
 use tokio::time::{interval, Duration};
 mod chess;
 mod common;
 mod engine;
+pub mod listen;
+pub mod logger;
 pub mod yolo;
-
 const MODEL_PATH: &str = "../libs/model.onnx";
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(app: tauri::AppHandle, name: &str) -> String {
-    let model_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
-    let model = yolo::Model::new(model_path).unwrap();
-    let window = common::get_windows(name).unwrap();
-    let image = window.capture_image().unwrap();
-    let detections = model.predict(image).unwrap();
-    let count = detections.len();
-    println!("detections count {}", count);
-    format!("detections count {}", count)
-}
+pub async fn start_listen(
+    app: &mut tauri::App,
+    handle: State<'static, Mutex<GobalHandle>>,
+    name: String,
+) -> Result<(), ()> {
+    let mut _handle = handle.lock().unwrap();
+    _handle.listen_window = Arc::new(Mutex::new(listen::ListenWindow::new(name)));
 
-pub fn start_listen(app: &mut tauri::App, handle: &mut State<&mut GobalHandle>, name: &str) {
-    if let Some(cancel_rx) = &handle.cancel_rx {
-        // 取消原来的
-        cancel_rx.send(());
-        handle.cancel_rx = None;
-    }
-    let window = common::get_windows(name).unwrap();
-    let (tx, mut rx) = mpsc::channel::<()>(1);
-    // 启动新的线程
-    let config = handle.config.clone();
+    // 启动新的线程, 执行定时任务
+    let intervals = _handle.interval.clone(); // 先克隆出间隔时间
+                                              // let listen_window = _handle.listen_window.clone();
+    let listen_window = Arc::clone(&_handle.listen_window);
+    let model = Arc::clone(&_handle.model);
+    let engine = Arc::clone(&_handle.engine);
+
     tokio::spawn(async move {
-        let mut interval = interval(config.interval);
+        let mut intervals = interval(intervals);
+        let mut listen_window = listen_window.lock().unwrap();
+        let window = listen_window.as_mut().unwrap();
+        let pic = window.capture();
+        let origin_width = pic.width();
+        let origin_height = pic.height();
+        let boxes = model.predict(pic).unwrap();
+        let (x, y, w, h) = common::detections_bound(origin_width, origin_height, &boxes).unwrap();
+        window.set(x, y, w, h);
+        drop(window);
         loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    // 执行你的定时任务
-                    println!("Tick");
-                }
-                _ = rx.recv() => {
-                    // 接收到取消信号，退出循环
-                    break;
-                }
-            }
-        }
-    });
-    handle.cancel_rx = Some(tx);
-}
+            intervals.tick().await;
 
-pub fn stop_listen(app: &mut tauri::App, handle: &mut State<GobalHandle>) {
-    if let Some(cancel_rx) = &handle.cancel_rx {
-        // 取消原来的
-        cancel_rx.send(());
-    }
-}
-
-/// 启动识别的Timer循环，并返回一个用于取消该Timer的发送者。
-pub async fn start_timer(interval_duration: Duration) -> mpsc::Sender<()> {
-    let (tx, mut rx) = mpsc::channel::<()>(1);
-
-    // 使用tokio::spawn来在后台运行Timer循环。
-    tokio::spawn(async move {
-        let mut interval = interval(interval_duration);
-
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    // 执行你的定时任务
-                    println!("Tick");
-                }
-                _ = rx.recv() => {
-                    // 接收到取消信号，退出循环
-                    break;
-                }
+            // let listen_window = listen_window.unwrap();
+            if listen_window.is_none() {
+                break;
             }
         }
     });
 
-    // 返回用于取消Timer的发送者。
-    tx
+    Ok(())
 }
 
-struct DetectTimer {
-    window: xcap::Window,
-    interval: Duration,
-    engine: Engine,
-    cancel: Receiver<()>,
+pub fn stop_listen(app: &mut tauri::App, handle: State<'static, Mutex<GobalHandle>>) {
+    // 取消原来的
+    let mut handle = handle.lock().unwrap();
+    handle.listen_window = Arc::new(Mutex::new(None));
 }
 
-#[derive(Clone, Copy)]
-struct Config {
-    interval: Duration,
-}
-
-struct GobalHandle {
-    // window: Mutex<Option<xcap::Window>>,
-    model: yolo::Model,
-    cancel_rx: Option<mpsc::Sender<()>>,
-    config: Config,
+pub struct GobalHandle {
+    // 监听的应用
+    pub listen_window: Arc<Mutex<Option<listen::ListenWindow>>>,
+    // 模型
+    pub model: Arc<yolo::Model>,
+    // 引擎
+    pub engine: Arc<engine::Engine>,
+    // 扫描间隔
+    pub interval: Duration,
 }
 
 #[tokio::main]
 async fn main() {
-    // 配置tokio运行环境
-    tauri::async_runtime::set(tokio::runtime::Handle::current());
-
     tauri::Builder::default()
         .setup(|app| {
-            let (tx, rx): (Sender<String>, Receiver<String>) = channel();
-            // let mut chess_board = ChessBoard::new();
             let model_path = app.path_resolver().resolve_resource(MODEL_PATH).unwrap();
             let model = yolo::Model::new(model_path).unwrap();
-            // let window = common::get_windows(name).unwrap();
+            let mut engine = engine::Engine::new(MODEL_PATH);
             app.manage(GobalHandle {
-                model: model,
-                cancel_rx: todo!(),
-                config: Config {
-                    interval: Duration::from_millis(1000),
-                },
-            });
-
-            thread::spawn(move || {
-                loop {
-                    {
-                        // let image = window.capture_image().unwrap();
-                        // todo 重复判断棋盘是否发生变化:
-                        //   - 是 => 发送move事件到前端
-                        //   - 是否需要分析:
-                        //     - 是 => 发送fen到分析队列
-
-                        unimplemented!();
-                    }
-                }
-            });
-
-            thread::spawn(move || loop {
-                // 监听分析队列，收到事件后:
-                //   调用云库查询, 是否查询成功
-                //     - 是 => 是否满足阈值设置:
-                //       - 是 => 发送日志到前端
-                //       - 否 => 调用引擎 => 发送日志到前端
-                //     - 否 => 调用引擎 => 发送日志到前端
-
-                match rx.recv() {
-                    Ok(message) => {}
-                    Err(e) => {}
-                }
+                model: Arc::new(model),
+                interval: Duration::from_millis(1000),
+                listen_window: Arc::new(Mutex::new(None)),
+                engine: Arc::new(engine),
             });
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

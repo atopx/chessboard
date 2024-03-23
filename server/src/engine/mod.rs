@@ -1,130 +1,196 @@
 pub mod chessdb;
-use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command;
-use tokio::sync::mpsc;
-use tokio::task;
+use std::fmt;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Write;
+use std::process::{Child, Command, Stdio};
+
+use tracing::debug;
 
 #[derive(Debug, serde::Serialize, Default)]
 pub struct QueryRecords {
-    pub best: bool,         // 是否最佳行棋
-    pub checkmate: bool,    // 是否将死
-    pub depth: usize,       // 深度
-    pub score: usize,       // 得分
-    pub time: usize,        // 时间
-    pub moves: Vec<String>, // 思考
-    pub state: QueryState,  // 状态
-    pub source: Source,     // 来源
+    pub depth: usize,         // 深度
+    pub score: isize,         // 得分
+    pub time: usize,          // 时间
+    pub pvs: Vec<String>,     // 思考(iccs)
+    pub moves: Vec<String>,   // 思考(chinese)
+    pub state: QueryState,    // 状态
+    pub source: &'static str, // 来源
 }
 
-#[derive(Debug, serde::Serialize, Default)]
-pub enum Source {
-    #[default]
-    Engine,
-    Chessdb,
-}
+const SOURCE_ENGINE: &str = "引擎";
 
 #[derive(Debug, serde::Serialize, Default)]
 pub enum QueryState {
-    #[default]
     Success,
+    #[default]
     NotResult,
     InvalidBoard,
     ServerInternalError, // 内部错误
 }
 
 pub struct Engine {
-    pub sender: mpsc::Sender<String>,
-    pub receiver: mpsc::Receiver<QueryRecords>,
-    tx: mpsc::Sender<QueryRecords>,
+    process: Child,
+    chessdb: bool,
+    stdin: Box<dyn Write>,
+    stdout: Box<dyn BufRead>,
 }
+
+unsafe impl Send for Engine {}
+unsafe impl Sync for Engine {}
 
 impl Engine {
-    async fn setoption(&self, key: &str, value: &str) {
-        self.sender
-            .send(format!("setoption name {} value {}", key, value));
-    }
-
-    async fn go(&self, fen: &str, depth: usize, time: usize) -> bool {
-        // 先查询云库
-        let result = chessdb::query(fen).await;
-
-        match result.state {
-            QueryState::Success => {
-                // 发送查询结果到队列
-                self.tx.send(result).await.unwrap();
-                true
-            }
-            QueryState::InvalidBoard => false,
-            QueryState::ServerInternalError | QueryState::NotResult => {
-                // 查询云库失败调用引擎
-                self.sender
-                    .send(format!("position fen {}", fen))
-                    .await
-                    .unwrap();
-                self.sender
-                    .send(format!("go depth {} time {}", depth, time))
-                    .await
-                    .unwrap();
-                true
-            }
-        }
-    }
-
-    async fn new(path: &str) -> Self {
-        let mut cmd = Command::new(path)
+    pub fn new(path: &str) -> Self {
+        let mut process = Command::new(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
             .spawn()
-            .unwrap();
+            .expect("Unable to run engine");
 
-        let stdout = cmd.stdout.take().unwrap();
-        let mut stdin = cmd.stdin.take().unwrap();
-        let (sender, mut rx) = mpsc::channel::<String>(1);
-        let (tx, receiver) = mpsc::channel::<QueryRecords>(1);
-        let tx_clone = tx.clone();
-        task::spawn(async move {
-            // 监听引擎输出
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
-            while let Some(line) = lines.next_line().await.unwrap() {
-                // 解析并发送结果到队列
-                if let Some(result) = parse_line(line).await {
-                    tx_clone.send(result).await.unwrap();
+        let stdin = process.stdin.take().unwrap();
+        let stdout = process.stdout.take().unwrap();
+        let buffer = BufReader::new(stdout);
+
+        let mut eng = Engine {
+            chessdb: false,
+            process,
+            stdin: Box::new(stdin),
+            stdout: Box::new(buffer),
+        };
+        eng.setoption("EvalFile", format!("{}.nnue", path));
+        eng
+    }
+
+    pub fn set_chessdb(&mut self, open: bool) {
+        self.chessdb = open;
+    }
+
+    fn write_command<A: fmt::Display>(&mut self, args: A) {
+        write!(self.stdin, "{}\n", args).expect("write command error");
+        self.stdin.flush().expect("write command flush error");
+        debug!("{}", args);
+    }
+
+    pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
+        self.write_command(format!("setoption name {} value {}", name, value))
+    }
+
+    pub fn position(&mut self, fen: &str) {
+        self.write_command(format!("position fen {}", fen))
+    }
+
+    pub fn ready(&mut self) -> bool {
+        self.write_command("isready");
+        let response = self.read_line();
+        response == "readyok"
+    }
+
+    fn read_line(&mut self) -> String {
+        let mut line = String::new();
+        self.stdout.read_line(&mut line).unwrap();
+        debug!("line::{}", line);
+        line.trim().to_string()
+    }
+
+    fn parse_line(&self, line: String, result: &mut QueryRecords) {
+        let mut iter = line.split_whitespace();
+        result.source = SOURCE_ENGINE;
+        loop {
+            if let Some(key) = iter.next() {
+                match key {
+                    "depth" => {
+                        result.depth = iter.next().unwrap().parse().unwrap();
+                    }
+                    "time" => {
+                        result.depth = iter.next().unwrap().parse().unwrap();
+                    }
+                    "score" => match iter.next().unwrap() {
+                        "cp" => {
+                            result.score = iter.next().unwrap().parse().unwrap();
+                        }
+                        "mate" => {
+                            let round: isize = iter.next().unwrap().parse().unwrap();
+                            result.score = if round > 0 {
+                                30000 - round
+                            } else {
+                                (30000 + round) * -1
+                            };
+                        }
+                        _ => {}
+                    },
+                    "pv" => loop {
+                        if let Some(pv) = iter.next() {
+                            result.pvs.push(pv.to_string());
+                            continue;
+                        }
+                        break;
+                    },
+                    _ => {}
                 }
+                continue;
             }
-        });
+            break;
+        }
 
-        task::spawn(async move {
-            // 监听UCI命令, 调用UCI引擎
-            while let Some(msg) = rx.recv().await {
-                stdin.write_all(msg.as_bytes()).await.unwrap();
-                stdin.write_all(b"\n").await.unwrap();
-                stdin.flush().await.unwrap();
+        // None
+    }
+
+    async fn bestmove(&mut self, depth: usize, time: usize) -> String {
+        self.write_command(format!("go depth {} movetime {}", depth, time));
+        let mut pre_line = String::new();
+        loop {
+            let line = self.read_line();
+            if line.starts_with("bestmove") {
+                debug!("{}", pre_line);
+                break;
             }
-        });
+            pre_line = line;
+        }
+        pre_line
+    }
 
-        Self {
-            tx,
-            sender,
-            receiver,
+    pub async fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryRecords> {
+        // 先查询云库
+        let mut result = if self.chessdb {
+            chessdb::query(fen).await
+        } else {
+            QueryRecords::default()
+        };
+        match result.state {
+            QueryState::Success => Some(result),
+            QueryState::InvalidBoard => None,
+            QueryState::ServerInternalError | QueryState::NotResult => {
+                // 查询云库失败调用引擎
+                self.position(fen);
+                let best_line = self.bestmove(depth, time).await;
+                self.parse_line(best_line, &mut result);
+                Some(result)
+            }
         }
     }
-}
-
-async fn parse_line(line: String) -> Option<QueryRecords> {
-    unimplemented!()
 }
 
 #[cfg(test)]
 mod tests {
+    use tracing::info;
+
     use super::*;
+    use crate::logger;
 
     #[tokio::test]
     async fn test_query() {
+        logger::init_tracer();
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
         let result = chessdb::query(fen).await;
-        println!("{:?}", result);
+        info!("{:?}", result);
+    }
+    #[tokio::test]
+    async fn test_engine() {
+        logger::init_tracer();
+        let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
+        let mut eng = Engine::new("/Users/atopx/script/chessboard/libs/pikafish");
+        info!("{}", eng.ready());
+        let records = eng.go(fen, 10, 1000).await;
+        info!("{:?}", records);
     }
 }

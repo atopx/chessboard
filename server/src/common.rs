@@ -1,15 +1,7 @@
 use super::chess;
 use super::yolo::detection::Detection;
+use tracing::debug;
 use xcap::Window;
-
-pub enum ChessState {
-    // 空闲
-    None,
-    // 识别棋盘
-    Detect,
-    // 引擎分析
-    Analyse,
-}
 
 pub fn get_windows(title: &str) -> ort::Result<xcap::Window, &str> {
     let windows = Window::all().unwrap();
@@ -39,10 +31,32 @@ impl Position {
     }
 }
 
+// detections_bound 获取截图的边界
+pub fn detections_bound(
+    w: u32,
+    h: u32,
+    detections: &Vec<Detection>,
+) -> Result<(u32, u32, u32, u32), String> {
+    match detections.iter().find(|&&x| x.label == '0') {
+        Some(board_det) => {
+            let rate_x = w as f32 / 640.0;
+            let rate_y = h as f32 / 640.0;
+            let space_x = board_det.w / 8.0;
+            let space_y = board_det.h / 9.0;
+            let x = ((board_det.x0 - space_x) * rate_x) as u32;
+            let y = ((board_det.y0 - space_y) * rate_y) as u32;
+            let w = ((board_det.w + space_x * 2.0) * rate_x) as u32;
+            let h = ((board_det.h + space_y * 2.0) * rate_y) as u32;
+            Ok((x, y, w, h))
+        }
+        None => Err(String::from("1234")),
+    }
+}
+
 // detections_to_board 识别结果转换为棋盘结构
 pub fn detections_to_board(
     detections: Vec<Detection>,
-) -> Result<(chess::Camp, [[char; 9]; 10]), &'static str> {
+) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
     let mut camp = chess::Camp::None;
     let mut board = [[' '; 9]; 10];
 
@@ -57,7 +71,7 @@ pub fn detections_to_board(
                 // 计算棋子定位(转整数: +0.5向下取整)
                 let col = ((det.x - board_det.x0) / space_x + 0.5) as i32;
                 let row = ((det.y - board_det.y0) / space_y + 0.5) as i32;
-                println!("{} row={} col={}", det.label, row, col);
+                debug!("{} row={} col={}", det.label, row, col);
 
                 // 边界处理
                 if col < 0 || col > 8 || row < 0 || row > 9 {
@@ -68,7 +82,7 @@ pub fn detections_to_board(
                 board[row as usize][col as usize] = det.label;
 
                 // 判断阵营
-                if camp != chess::Camp::None && 3 <= col && col <= 5 && row >= 7 {
+                if camp == chess::Camp::None && 3 <= col && col <= 5 && row >= 7 {
                     match det.label {
                         'k' => camp = chess::Camp::Black,
                         'K' => camp = chess::Camp::Red,
@@ -77,7 +91,7 @@ pub fn detections_to_board(
                 }
             }
         }
-        None => return Err("not board"),
+        None => return Err("not board".to_string()),
     }
     Ok((camp, board))
 }
