@@ -5,12 +5,10 @@ use std::path::PathBuf;
 use detection::{nms, Detection};
 use ndarray::{s, Array, ArrayBase, Dim, OwnedRepr};
 use ort::{inputs, CoreMLExecutionProvider, Session, Tensor};
-use xcap::image::{
-    imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Rgba,
-};
+use xcap::image::{imageops::FilterType, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
 pub struct Model {
-    session: Session,
+    session: ort::Session,
 }
 
 const CONFIDENCE_THRESHOLD: f32 = 0.7f32;

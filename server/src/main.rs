@@ -1,9 +1,13 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // 修改后的代码
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, thread};
+use engine::Engine;
+use listen::ListenWindow;
 use tauri::{Manager, State};
 use tokio::time::{interval, Duration};
+use yolo::Model;
+use lazy_static::lazy_static;
 mod chess;
 mod common;
 mod engine;
@@ -14,9 +18,11 @@ const MODEL_PATH: &str = "../libs/model.onnx";
 
 pub async fn start_listen(
     app: &mut tauri::App,
-    handle: State<'static, Mutex<GobalHandle>>,
+    // handle: State<'static, Mutex<GobalHandle>>,
     name: String,
 ) -> Result<(), ()> {
+    let state: State<'_, GobalHandle> = app.state();
+    let mut window = state
     let mut _handle = handle.lock().unwrap();
     _handle.listen_window = Arc::new(Mutex::new(listen::ListenWindow::new(name)));
 
@@ -57,15 +63,22 @@ pub fn stop_listen(app: &mut tauri::App, handle: State<'static, Mutex<GobalHandl
     handle.listen_window = Arc::new(Mutex::new(None));
 }
 
-pub struct GobalHandle {
-    // 监听的应用
-    pub listen_window: Arc<Mutex<Option<listen::ListenWindow>>>,
-    // 模型
-    pub model: Arc<yolo::Model>,
-    // 引擎
-    pub engine: Arc<engine::Engine>,
-    // 扫描间隔
-    pub interval: Duration,
+// 全局共享状态，用Arc和Mutex包装以实现线程安全共享
+struct SharedState {
+    engine: Engine,
+    model: Model,
+    listen_window: Option<ListenWindow>,
+    listen_thread: Option<thread::JoinHandle<()>>,
+}
+
+lazy_static! {
+    // 使用lazy_static来创建一个全局的、可变的、线程安全的单例
+    static ref STATE: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState {
+        engine: Engine::new(MODEL_PATH), // 假设有这样的构造函数
+        model: Model::new(MODEL_PATH),   // 同上
+        listen_window: None,
+        listen_thread: None,
+    }));
 }
 
 #[tokio::main]
