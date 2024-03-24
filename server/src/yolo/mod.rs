@@ -21,7 +21,8 @@ unsafe impl Send for Model {}
 unsafe impl Sync for Model {}
 
 impl Model {
-    pub fn new(model_path: PathBuf) -> ort::Result<Self> {
+    pub fn new(libs: &PathBuf) -> ort::Result<Self> {
+        let model_path = libs.join("model.onnx");
         ort::init()
             .with_execution_providers([CoreMLExecutionProvider::default().build()])
             .commit()?;
@@ -102,10 +103,10 @@ mod tests {
     #[tokio::test]
     async fn test_predict() {
         logger::init_tracer();
-        let p = path::PathBuf::from("/Users/atopx/script/chessboard/libs/model.onnx");
-        let model = Model::new(p).unwrap();
+        let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
+        let model = Model::new(&libs).unwrap();
         let window = common::get_windows("JJ象棋").unwrap();
-        let mut eng = engine::Engine::new("/Users/atopx/script/chessboard/libs/pikafish");
+        let mut eng = engine::Engine::new(&libs);
         let mut image = window.capture_image().unwrap();
         let mut detections = model.predict(image.clone()).unwrap();
         info!("{}", detections.len());
@@ -119,7 +120,7 @@ mod tests {
         fen.push(' ');
         fen.push(camp.to_char());
         info!("fen {:?}", fen);
-        let result = eng.go(&fen, 25, 2500).await.unwrap();
+        let result = eng.go(&fen, 25, 2500).unwrap();
         for pv in result.pvs {
             let notice = chess::board_move_chinese(board, &pv);
             board = chess::board_move(board, &pv);

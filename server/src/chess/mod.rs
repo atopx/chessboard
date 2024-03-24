@@ -13,6 +13,17 @@ pub const BOARD_MAP: [[&str; 9]; 10] = [
     ["a0", "b0", "c0", "d0", "e0", "f0", "g0", "h0", "i0"],
 ];
 
+pub enum BoardState {
+    // 无变化
+    NotChanged,
+    // 变化了一个棋子
+    OneChanged,
+    // 正常一步棋移动
+    MoveChanged,
+    // 未知多个变化
+    UnknownChanged,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Camp {
     None,
@@ -32,6 +43,19 @@ impl Camp {
 
 const BLACK_VERTICALS: [char; 9] = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const RED_VERTICALS: [char; 9] = ['九', '八', '七', '六', '五', '四', '三', '二', '一'];
+
+const RED_STARTPOS: [[char; 9]; 10] = [
+    ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', 'c', ' ', ' ', ' ', ' ', ' ', 'c', ' '],
+    ['p', ' ', 'p', ' ', 'p', ' ', 'p', ' ', 'p'],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ['P', ' ', 'P', ' ', 'P', ' ', 'P', ' ', 'P'],
+    [' ', 'C', ' ', ' ', ' ', ' ', ' ', 'C', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
+];
 
 pub fn get_verticals(p: char) -> [char; 9] {
     if p > 'Z' {
@@ -132,7 +156,7 @@ pub fn board_fen(board: [[char; 9]; 10]) -> String {
 }
 
 // 检测棋盘是否合法
-fn board_check(board: [[char; 9]; 10]) -> bool {
+pub fn board_check(board: [[char; 9]; 10]) -> bool {
     let mut bk = 0;
     let mut ba = 0;
     let mut bb = 0;
@@ -301,8 +325,12 @@ pub const fn get_piece_name(piece: char) -> char {
     }
 }
 
-pub fn board_fix(camp: Camp, board: &mut [[char; 9]; 10]) {
-    if camp == Camp::Black {
+pub fn startpos(board: [[char; 9]; 10]) -> bool {
+    board == RED_STARTPOS
+}
+
+pub fn board_fix(camp: &Camp, board: &mut [[char; 9]; 10]) {
+    if Camp::Black.eq(camp) {
         board.reverse();
         for i in board {
             i.reverse()
@@ -815,7 +843,7 @@ mod tests {
             [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
             ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
         ];
-        board_fix(Camp::Black, &mut board);
+        board_fix(&Camp::Black, &mut board);
         println!("{:?}", board)
     }
 }

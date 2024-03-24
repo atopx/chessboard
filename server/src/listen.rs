@@ -1,6 +1,5 @@
 use xcap::image::{self, GenericImage};
 
-#[derive(Clone)]
 pub struct ListenWindow {
     window: xcap::Window,
     x: u32,

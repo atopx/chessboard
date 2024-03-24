@@ -3,6 +3,7 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
 use tracing::debug;
@@ -29,6 +30,8 @@ pub enum QueryState {
     ServerInternalError, // 内部错误
 }
 
+static mut ENGINE: Option<Engine> = None;
+
 pub struct Engine {
     process: Child,
     chessdb: bool,
@@ -40,8 +43,10 @@ unsafe impl Send for Engine {}
 unsafe impl Sync for Engine {}
 
 impl Engine {
-    pub fn new(path: &str) -> Self {
-        let mut process = Command::new(path)
+    pub fn new(libs: &PathBuf) -> Self {
+        let cmd = libs.join("pikafish");
+        let nnue = libs.join("pikafish.nnue");
+        let mut process = Command::new(cmd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -57,7 +62,7 @@ impl Engine {
             stdin: Box::new(stdin),
             stdout: Box::new(buffer),
         };
-        eng.setoption("EvalFile", format!("{}.nnue", path));
+        eng.setoption("EvalFile", nnue.display());
         eng
     }
 
@@ -135,7 +140,7 @@ impl Engine {
         // None
     }
 
-    async fn bestmove(&mut self, depth: usize, time: usize) -> String {
+    fn bestmove(&mut self, depth: usize, time: usize) -> String {
         self.write_command(format!("go depth {} movetime {}", depth, time));
         let mut pre_line = String::new();
         loop {
@@ -149,10 +154,10 @@ impl Engine {
         pre_line
     }
 
-    pub async fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryRecords> {
+    pub fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryRecords> {
         // 先查询云库
         let mut result = if self.chessdb {
-            chessdb::query(fen).await
+            chessdb::query(fen)
         } else {
             QueryRecords::default()
         };
@@ -162,7 +167,7 @@ impl Engine {
             QueryState::ServerInternalError | QueryState::NotResult => {
                 // 查询云库失败调用引擎
                 self.position(fen);
-                let best_line = self.bestmove(depth, time).await;
+                let best_line = self.bestmove(depth, time);
                 self.parse_line(best_line, &mut result);
                 Some(result)
             }
@@ -172,25 +177,28 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
+    use std::path;
+
     use tracing::info;
 
     use super::*;
     use crate::logger;
 
-    #[tokio::test]
-    async fn test_query() {
+    #[test]
+    fn test_query() {
         logger::init_tracer();
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
-        let result = chessdb::query(fen).await;
+        let result = chessdb::query(fen);
         info!("{:?}", result);
     }
     #[tokio::test]
     async fn test_engine() {
         logger::init_tracer();
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
-        let mut eng = Engine::new("/Users/atopx/script/chessboard/libs/pikafish");
+        let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
+        let mut eng = Engine::new(&libs);
         info!("{}", eng.ready());
-        let records = eng.go(fen, 10, 1000).await;
+        let records = eng.go(fen, 10, 1000);
         info!("{:?}", records);
     }
 }

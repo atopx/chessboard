@@ -33,7 +33,7 @@
     },
     "bundle": {
       "resources": [
-        "../libs/model.onnx"
+        "../libs/*"
       ],
       "active": true,
       "targets": "all",
