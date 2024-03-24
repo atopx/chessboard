@@ -1,6 +1,6 @@
 use super::chess;
 use super::yolo::detection::Detection;
-use tracing::debug;
+use tracing::trace;
 use xcap::Window;
 
 pub fn get_windows(title: &str) -> ort::Result<xcap::Window, &str> {
@@ -71,7 +71,7 @@ pub fn detections_to_board(
                 // 计算棋子定位(转整数: +0.5向下取整)
                 let col = ((det.x - board_det.x0) / space_x + 0.5) as i32;
                 let row = ((det.y - board_det.y0) / space_y + 0.5) as i32;
-                debug!("{} row={} col={}", det.label, row, col);
+                trace!("{} row={} col={}", det.label, row, col);
 
                 // 边界处理
                 if col < 0 || col > 8 || row < 0 || row > 9 {

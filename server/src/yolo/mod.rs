@@ -116,9 +116,7 @@ mod tests {
         image.save("test.png").unwrap();
         detections = model.predict(image).unwrap();
         let (camp, mut board) = common::detections_to_board(detections).unwrap();
-        let mut fen = chess::board_fen(board);
-        fen.push(' ');
-        fen.push(camp.to_char());
+        let fen = chess::board_fen(&camp, board);
         info!("fen {:?}", fen);
         let result = eng.go(&fen, 25, 2500).unwrap();
         for pv in result.pvs {

@@ -19,7 +19,6 @@ pub mod yolo;
 struct SharedState {
     engine: Option<Engine>,
     model: Option<Model>,
-    // listen_window: Option<ListenWindow>,
     listen_thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -28,24 +27,8 @@ lazy_static! {
     static ref STATE: Arc<Mutex<SharedState>> = Arc::new(Mutex::new(SharedState {
         engine: None,
         model: None,
-        // listen_window: None,
         listen_thread: None,
     }));
-}
-
-#[tauri::command]
-fn stop_listen() {
-    let mut state = STATE.lock().unwrap();
-
-    if let Some(listen_thread) = state.listen_thread.take() {
-        // 释放锁，停止后台线程
-        drop(state);
-        listen_thread.join().unwrap();
-    }
-
-    // 关闭窗口、清理资源等操作可以在这里进行
-
-    // 返回响应给前端，例如确认停止监听的消息
 }
 
 fn main() {
@@ -61,7 +44,10 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker::start_listen, stop_listen])
+        .invoke_handler(tauri::generate_handler![
+            worker::start_listen,
+            worker::stop_listen,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

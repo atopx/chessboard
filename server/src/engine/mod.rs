@@ -4,11 +4,12 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use tracing::debug;
+use tracing::trace;
 
-#[derive(Debug, serde::Serialize, Default)]
+#[derive(Debug, serde::Serialize, Default, Clone)]
 pub struct QueryRecords {
     pub depth: usize,         // 深度
     pub score: isize,         // 得分
@@ -21,7 +22,7 @@ pub struct QueryRecords {
 
 const SOURCE_ENGINE: &str = "引擎";
 
-#[derive(Debug, serde::Serialize, Default)]
+#[derive(Debug, serde::Serialize, Default, Clone)]
 pub enum QueryState {
     Success,
     #[default]
@@ -30,10 +31,7 @@ pub enum QueryState {
     ServerInternalError, // 内部错误
 }
 
-static mut ENGINE: Option<Engine> = None;
-
 pub struct Engine {
-    process: Child,
     chessdb: bool,
     stdin: Box<dyn Write>,
     stdout: Box<dyn BufRead>,
@@ -58,7 +56,6 @@ impl Engine {
 
         let mut eng = Engine {
             chessdb: false,
-            process,
             stdin: Box::new(stdin),
             stdout: Box::new(buffer),
         };
@@ -93,7 +90,7 @@ impl Engine {
     fn read_line(&mut self) -> String {
         let mut line = String::new();
         self.stdout.read_line(&mut line).unwrap();
-        debug!("line::{}", line);
+        trace!("line::{}", line);
         line.trim().to_string()
     }
 
@@ -146,7 +143,7 @@ impl Engine {
         loop {
             let line = self.read_line();
             if line.starts_with("bestmove") {
-                debug!("{}", pre_line);
+                trace!("{}", pre_line);
                 break;
             }
             pre_line = line;

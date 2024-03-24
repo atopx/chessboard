@@ -28,10 +28,12 @@ const engineConfig = ref({
     engineThreads: 4,
 })
 
-// 引擎时间、引擎深度、引擎线程
+async function stopListen() {
+    await invoke("stop_listen");
+}
 
-async function handleClick() {
-    let result = await invoke("greet", { name: "JJ象棋" });
+async function startListen() {
+    let result = await invoke("start_listen", { name: "JJ象棋" });
     console.log(result);
 }
 
@@ -60,8 +62,8 @@ async function handleClick() {
 
             <n-flex>
                 <n-flex vertical>
-                    <n-button size="small" tertiary type="info" @click="handleClick">启动引擎</n-button>
-                    <n-button size="small" tertiary type="info">停止引擎</n-button>
+                    <n-button size="small" tertiary type="info" @click="startListen">启动引擎</n-button>
+                    <n-button size="small" tertiary type="info" @click="stopListen">停止引擎</n-button>
                 </n-flex>
 
                 <n-flex vertical>

@@ -9,10 +9,10 @@ type Piece = {
   position: string,
 }
 
-type Move = {
-  from: string,
-  to: string,
-}
+// type Move = {
+//   from: string,
+//   to: string,
+// }
 
 const startpos: Piece[] = [
   {key: "R", position: "a0"},
@@ -64,10 +64,6 @@ onMounted(async () => {
   await emit('position', startpos)
 })
 
-// 移动棋子
-async function setPieceMove(move: Move) {
-  // document.getElementById(move.from)?.classList.keys().
-}
 
 
 listen('position', async (event) => {
@@ -75,10 +71,10 @@ listen('position', async (event) => {
   await setPiecesOnBoard(pos);
 })
 
-listen('move', async (event) => {
-  let move = event.payload as Move;
-  // await
-});
+// listen('move', async (event) => {
+//   let move = event.payload as Move;
+//   // await
+// });
 
 
 </script>

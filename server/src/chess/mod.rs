@@ -13,9 +13,8 @@ pub const BOARD_MAP: [[&str; 9]; 10] = [
     ["a0", "b0", "c0", "d0", "e0", "f0", "g0", "h0", "i0"],
 ];
 
+#[derive(Debug)]
 pub enum BoardState {
-    // 无变化
-    NotChanged,
     // 变化了一个棋子
     OneChanged,
     // 正常一步棋移动
@@ -24,19 +23,36 @@ pub enum BoardState {
     UnknownChanged,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub enum Camp {
+    #[default]
     None,
     Red,
     Black,
 }
 
 impl Camp {
-    pub fn to_char(self) -> char {
+    pub fn to_char(&self) -> char {
         match self {
             Camp::None => '0',
             Camp::Red => 'w',
             Camp::Black => 'b',
+        }
+    }
+
+    pub fn from_piece(p: char) -> Self {
+        if p > 'Z' {
+            Self::Black
+        } else {
+            Self::Red
+        }
+    }
+
+    pub fn switch(self) -> Option<Self> {
+        match self {
+            Camp::None => None,
+            Camp::Red => Some(Camp::Black),
+            Camp::Black => Some(Camp::Red),
         }
     }
 }
@@ -65,35 +81,40 @@ pub fn get_verticals(p: char) -> [char; 9] {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Changed {
-    pos: &'static str,
-    piece: char,
-}
-
-impl Changed {
-    pub fn new(pos: &'static str, piece: char) -> Self {
-        Self { pos, piece }
-    }
+    pub piece: char,
+    pub camp: Camp,
+    pub from: String,
+    pub to: String,
 }
 
 // 对比棋盘, 返回值是发生变化的索引
-pub fn board_diff(old_board: [[char; 9]; 10], new_board: [[char; 9]; 10]) -> Option<Vec<Changed>> {
-    if old_board == new_board {
-        return None;
-    }
-
-    let mut diff_indices = Vec::new();
-
+pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Changed, BoardState) {
+    let mut changed = Changed::default();
+    let mut count = 0;
     for y in 0..10 {
         for x in 0..9 {
-            if old_board[y][x] != new_board[y][x] {
-                diff_indices.push(Changed::new(BOARD_MAP[y][x], new_board[y][x]));
+            if old_board[y][x] != board[y][x] {
+                count += 1;
+                // is from
+                match board[y][x] {
+                    ' ' => {
+                        changed.piece = old_board[y][x];
+                        changed.from = BOARD_MAP[y][x].to_string();
+                        changed.camp = Camp::from_piece(changed.piece);
+                    }
+                    _ => changed.to = BOARD_MAP[y][x].to_string(),
+                }
             }
         }
     }
 
-    Some(diff_indices)
+    match count {
+        1 => (changed, BoardState::OneChanged),
+        2 => (changed, BoardState::MoveChanged),
+        _ => (changed, BoardState::UnknownChanged),
+    }
 }
 
 pub struct Move {
@@ -131,7 +152,7 @@ pub fn board_move(board: [[char; 9]; 10], iccs: &str) -> [[char; 9]; 10] {
 }
 
 // 棋盘转换FEN逻辑
-pub fn board_fen(board: [[char; 9]; 10]) -> String {
+pub fn board_fen(camp: &Camp, board: [[char; 9]; 10]) -> String {
     let mut fen = String::new();
     for row in &board {
         let mut empty = 0;
@@ -152,6 +173,8 @@ pub fn board_fen(board: [[char; 9]; 10]) -> String {
         fen.push('/');
     }
     fen.pop();
+    fen.push(' ');
+    fen.push(camp.to_char());
     fen
 }
 
@@ -727,7 +750,7 @@ mod tests {
             ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
         ];
         let expected_fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR w";
-        assert_eq!(board_fen(board), expected_fen);
+        assert_eq!(board_fen(&Camp::Red, board), expected_fen);
     }
 
     #[test]
@@ -750,20 +773,15 @@ mod tests {
 
     #[test]
     fn test_chinese() {
-        let board = [
-            [' ', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
-            [' ', ' ', ' ', ' ', 'p', ' ', ' ', ' ', ' '],
-            ['p', 'c', ' ', ' ', 'p', ' ', ' ', 'c', 'r'],
-            ['p', ' ', ' ', ' ', 'p', ' ', ' ', ' ', ' '],
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-            [' ', 'N', ' ', ' ', 'P', ' ', ' ', ' ', ' '],
-            ['P', ' ', ' ', ' ', 'P', ' ', ' ', ' ', ' '],
-            ['P', 'C', ' ', ' ', 'C', ' ', ' ', ' ', ' '],
-            ['R', ' ', ' ', ' ', 'P', ' ', ' ', ' ', ' '],
-            ['R', 'N', 'B', 'A', 'K', 'A', 'B', ' ', ' '],
-        ];
-        let notice = board_move_chinese(board, "e0f0");
-        println!("{}", notice);
+        let fen = "2rakab2/9/1cn6/p3p3p/2b2n3/6R2/P3P1c1P/2N1C3C/4N4/2BAKAB2 w";
+        let mut board = fen_to_board(fen);
+        for pv in vec![
+            "g4g5", "b7b5", "g5g9", "c5e7", "g9g4", "f9e8", "i2i6", "c7d5",
+        ] {
+            let notice = board_move_chinese(board, pv);
+            board = board_move(board, pv);
+            println!("pv: {} => {}", pv, notice);
+        }
     }
 
     #[test]
@@ -809,7 +827,8 @@ mod tests {
             [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
             ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
         ];
-        println!("{:?}", board_diff(old, new))
+        let (changed, state) = board_diff(old, new);
+        println!("{:?} {:?}", changed, state);
     }
 
     #[test]
