@@ -60,6 +60,7 @@ impl Engine {
             stdout: Box::new(buffer),
         };
         eng.setoption("EvalFile", nnue.display());
+        eng.setoption("Sixty Move Rule", false);
         eng
     }
 
@@ -70,7 +71,19 @@ impl Engine {
     fn write_command<A: fmt::Display>(&mut self, args: A) {
         write!(self.stdin, "{}\n", args).expect("write command error");
         self.stdin.flush().expect("write command flush error");
-        trace!("{}", args);
+        debug!("{}", args);
+    }
+
+    pub fn set_show_wdl(&mut self, open: bool) {
+        self.setoption("UCI_ShowWDL", open);
+    }
+
+    pub fn set_threads(&mut self, num: usize) {
+        self.setoption("Threads", num);
+    }
+
+    pub fn set_hash(&mut self, size: usize) {
+        self.setoption("Hash", size);
     }
 
     pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
@@ -79,12 +92,6 @@ impl Engine {
 
     pub fn position(&mut self, fen: &str) {
         self.write_command(format!("position fen {}", fen))
-    }
-
-    pub fn ready(&mut self) -> bool {
-        self.write_command("isready");
-        let response = self.read_line();
-        response == "readyok"
     }
 
     fn read_line(&mut self) -> String {
@@ -176,25 +183,24 @@ impl Engine {
 mod tests {
     use std::path;
 
-    use tracing::info;
+    use tracing::{info, Level};
 
     use super::*;
     use crate::logger;
 
     #[test]
     fn test_query() {
-        logger::init_tracer();
+        logger::init_tracer(Level::TRACE);
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
         let result = chessdb::query(fen);
         info!("{:?}", result);
     }
     #[tokio::test]
     async fn test_engine() {
-        logger::init_tracer();
+        logger::init_tracer(Level::TRACE);
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
-        info!("{}", eng.ready());
         let records = eng.go(fen, 10, 1000);
         info!("{:?}", records);
     }

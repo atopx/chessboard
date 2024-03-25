@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event';
 import { LogInst, NCard, NDivider, NFlex, NLog, NText } from 'naive-ui';
-import { nextTick, onMounted, ref, watchEffect } from 'vue';
+import { ref } from 'vue';
 
 interface Analyse {
     depth: number,   // 深度
@@ -15,7 +15,6 @@ interface Analyse {
 
 
 const logs = ref([""])
-const logRef = ref(logs)
 const best = ref({
     move: "---",
     depth: 0,
@@ -25,18 +24,20 @@ const best = ref({
 listen('analyse', async (event) => {
     let data = event.payload as Analyse;
     let mvs = data.moves.join(" ");
-    logs.value.push(`>>> ${mvs}`)
-
+    logs.value.push(`<${data.source}> ${mvs}`)
+    // 滚动到最新
+    if (logs.value.length > 18) {
+        if (logs.value.length > 128) {
+            // 清理很早以前的数据
+            logs.value.shift();
+        }
+        logInstRef.value?.scrollTo({ position: 'bottom', silent: true })
+    }
     best.value.move = data.moves[0];
     best.value.depth = data.depth;
     best.value.score = data.score;
 
-    // 移除旧的b-select
-    document.querySelectorAll(".b-select").forEach(element => {
-        element.classList.remove("b-select")
-    });
-
-    // 设置新的b-select
+    // 设置b-select
     let pv = data.pvs[0];
     let from = pv.substring(0, 2);
     let to = pv.substring(2, 4)
@@ -47,23 +48,6 @@ listen('analyse', async (event) => {
 
 const logInstRef = ref<LogInst | null>(null)
 
-
-onMounted(() => {
-    watchEffect(() => {
-        if (logRef.value) {
-            nextTick(() => {
-                if (logs.value.length > 50) {
-                    // 只保留50条, 从左边删除1条
-                    logs.value.shift();
-                }
-                logInstRef.value?.scrollTo({ position: 'bottom', silent: true })
-            })
-        }
-    })
-})
-
-const fenType = ref("error")
-
 </script>
 
 <template>
@@ -73,7 +57,7 @@ const fenType = ref("error")
                 {{ best.move }}
             </n-text>
 
-            <n-text :type="fenType">
+            <n-text type="error">
                 {{ best.score }}
             </n-text>
             <n-text type="warning">
@@ -81,7 +65,7 @@ const fenType = ref("error")
             </n-text>
         </n-flex>
         <n-divider />
-        <n-log :rows=18 ref="logInst" :line-height="1.5" :lines="logs" :font-size="10" />
+        <n-log class="analyse-log" :rows=18 ref="logInst" :line-height="1.5" :lines="logs" :font-size="10" />
     </n-card>
 </template>
 

@@ -1,35 +1,6 @@
 use super::chess;
 use super::yolo::detection::Detection;
 use tracing::trace;
-use xcap::Window;
-
-pub fn get_windows(title: &str) -> ort::Result<xcap::Window, &str> {
-    let windows = Window::all().unwrap();
-    for window in windows {
-        if window.is_minimized() {
-            continue;
-        }
-        if window.title() != title {
-            continue;
-        }
-        return Ok(window);
-    }
-    Err("未找到窗口")
-}
-
-pub struct Position {
-    pub key: String,
-    pub value: char,
-}
-
-impl Position {
-    pub fn new(key: &str, value: char) -> Self {
-        Self {
-            key: key.to_string(),
-            value,
-        }
-    }
-}
 
 // detections_bound 获取截图的边界
 pub fn detections_bound(

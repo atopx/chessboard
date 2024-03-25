@@ -10,6 +10,9 @@
  - Rust
  - onnxruntime(yolo)
 
+TODO:
+1. 增加配置窗口
+2. 开局库接入
 
 # 应用截图
 

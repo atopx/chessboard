@@ -33,7 +33,8 @@
     },
     "bundle": {
       "resources": [
-        "../libs/*"
+        "../libs/*",
+        "../libs/config.json"
       ],
       "active": true,
       "targets": "all",

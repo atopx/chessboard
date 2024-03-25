@@ -1799,6 +1799,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libloading"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
+dependencies = [
+ "cfg-if",
+ "windows-targets 0.48.5",
+]
+
+[[package]]
 name = "libredox"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2294,6 +2304,7 @@ version = "2.0.0-alpha.4"
 source = "git+https://github.com/pykeio/ort.git?tag=v2.0.0-alpha.4#0aec4030a5f3470e4ee6c6f4e7e52d4e495ec27a"
 dependencies = [
  "half",
+ "libloading",
  "ndarray",
  "ort-sys",
  "thiserror",

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::Serialize;
+use tracing::warn;
 
 pub const BOARD_MAP: [[&str; 9]; 10] = [
     ["a9", "b9", "c9", "d9", "e9", "f9", "g9", "h9", "i9"],
@@ -55,14 +56,6 @@ impl Camp {
             Self::Red
         }
     }
-
-    pub fn switch(self) -> Option<Self> {
-        match self {
-            Camp::None => None,
-            Camp::Red => Some(Camp::Black),
-            Camp::Black => Some(Camp::Red),
-        }
-    }
 }
 
 const BLACK_VERTICALS: [char; 9] = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -103,8 +96,6 @@ impl Changed {
         let mut cs = pv.chars();
         let from_x = cs.next().unwrap() as usize - 97;
         let from_y = 57 - cs.next().unwrap() as usize;
-        let to_x = cs.next().unwrap() as usize - 97;
-        let to_y = 57 - cs.next().unwrap() as usize;
         let piece = board[from_y][from_x];
         Self {
             piece,
@@ -144,7 +135,6 @@ pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Change
 }
 
 pub struct Move {
-    iccs: String,
     from_x: usize,
     from_y: usize,
     to_x: usize,
@@ -159,7 +149,6 @@ impl Move {
         let to_x = cs.next().unwrap() as usize - 97;
         let to_y = 57 - cs.next().unwrap() as usize;
         Self {
-            iccs: iccs.to_string(),
             from_x,
             from_y,
             to_x,
@@ -227,7 +216,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                 'k' => {
                     bk += 1;
                     if y > 2 || x < 3 || x > 5 {
-                        println!("黑方'将'不在合法位置内");
+                        warn!("黑方'将'不在合法位置内");
                         return false;
                     }
                 }
@@ -237,7 +226,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                         && !(x == 4 && y == 1)
                         && !(x == 5 && (y == 0 || y == 2))
                     {
-                        println!("黑方'士'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("黑方'士'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -247,7 +236,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                         && !(y == 2 && (x == 0 || x == 4 || x == 8))
                         && !(y == 4 && (x == 2 || x == 6))
                     {
-                        println!("黑方'象'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("黑方'象'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -257,11 +246,11 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                 'p' => {
                     bp += 1;
                     if y < 3 {
-                        println!("黑方'兵'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("黑方'兵'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                     if y < 5 && x % 2 == 1 {
-                        println!("黑方'兵'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("黑方'兵'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -274,7 +263,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                 'K' => {
                     rk += 1;
                     if y < 7 || x < 3 || x > 5 {
-                        println!("红方'将'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("红方'将'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -284,7 +273,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                         && !(x == 4 && y == 8)
                         && !(x == 5 && (y == 7 || y == 9))
                     {
-                        println!("红方'士'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("红方'士'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -294,7 +283,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                         && !(y == 7 && (x == 0 || x == 4 || x == 8))
                         && !(y == 5 && (x == 2 || x == 6))
                     {
-                        println!("红方'象'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("红方'象'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -304,11 +293,11 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                 'P' => {
                     rp += 1;
                     if y > 6 {
-                        println!("红方'兵'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("红方'兵'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                     if y > 4 && x % 2 == 1 {
-                        println!("红方'兵'不在合法位置内, ({}行{}列)", y, x);
+                        warn!("红方'兵'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
                 }
@@ -324,31 +313,31 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
     }
 
     if bk != 1 || rk != 1 {
-        println!("黑方或红方'将'超出合法数量(红:{}, 黑:{})", rk, bk);
+        warn!("黑方或红方'将'超出合法数量(红:{}, 黑:{})", rk, bk);
         return false;
     }
     if ba > 2 || ra > 2 {
-        println!("黑方或红方'士'超出合法数量(红:{}, 黑:{})", ra, ba);
+        warn!("黑方或红方'士'超出合法数量(红:{}, 黑:{})", ra, ba);
         return false;
     }
     if bb > 2 || rb > 2 {
-        println!("黑方或红方'象'超出合法数量(红:{}, 黑:{})", rb, bb);
+        warn!("黑方或红方'象'超出合法数量(红:{}, 黑:{})", rb, bb);
         return false;
     }
     if bc > 2 || rc > 2 {
-        println!("黑方或红方'炮'超出合法数量(红:{}, 黑:{})", rc, bc);
+        warn!("黑方或红方'炮'超出合法数量(红:{}, 黑:{})", rc, bc);
         return false;
     }
     if br > 2 || rr > 2 {
-        println!("黑方或红方'车'超出合法数量(红:{}, 黑:{})", rr, br);
+        warn!("黑方或红方'车'超出合法数量(红:{}, 黑:{})", rr, br);
         return false;
     }
     if bn > 2 || rn > 2 {
-        println!("黑方或红方'马'超出合法数量(红:{}, 黑:{})", rn, bn);
+        warn!("黑方或红方'马'超出合法数量(红:{}, 黑:{})", rn, bn);
         return false;
     }
     if bp > 5 || rp > 5 {
-        println!("黑方或红方'兵'超出合法数量(红:{}, 黑:{})", rp, bp);
+        warn!("黑方或红方'兵'超出合法数量(红:{}, 黑:{})", rp, bp);
         return false;
     }
     true
@@ -732,6 +721,7 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
     chinese
 }
 
+#[allow(dead_code)]
 pub fn fen_to_board(mut fen: &str) -> [[char; 9]; 10] {
     if fen.contains(' ') {
         fen = fen.split_once(' ').unwrap().0

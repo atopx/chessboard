@@ -85,15 +85,39 @@ pub fn start_listen(app: AppHandle, name: String) {
             let mut expect_move = chess::Changed::default();
             let mut expect_board = [[' '; 9]; 10];
             let mut first_connect = true;
+            let mut invalid_change_count = 0;
             loop {
                 // 循环固定间隔时间
-                thread::sleep(Duration::from_millis(240));
+                thread::sleep(Duration::from_millis(
+                    state_for_thread
+                        .lock()
+                        .unwrap()
+                        .config
+                        .as_ref()
+                        .unwrap()
+                        .timer_interval,
+                ));
 
                 // 检查是否需要停止监听
                 if state_for_thread.lock().unwrap().listen_thread.is_none() {
                     debug!("listen stoped");
                     break;
                 }
+
+                let depth = state_for_thread
+                    .lock()
+                    .unwrap()
+                    .config
+                    .as_ref()
+                    .unwrap()
+                    .engine_depth;
+                let time = state_for_thread
+                    .lock()
+                    .unwrap()
+                    .config
+                    .as_ref()
+                    .unwrap()
+                    .engine_time;
 
                 // 截图
                 let image = window.capture();
@@ -114,10 +138,10 @@ pub fn start_listen(app: AppHandle, name: String) {
                     // 判断谁先
                     if chess::Camp::Red.eq(&camp) {
                         // 我方先手 立即分析
-                        debug!("startpos, 我方先手");
+                        trace!("startpos, 我方先手");
                         if last_board == board {
                             // 防止重复分析
-                            debug!("startpos, 我方先手, 防止重复分析");
+                            trace!("startpos, 我方先手, 防止重复分析");
                             continue;
                         }
                         // 设置前端棋盘
@@ -127,16 +151,17 @@ pub fn start_listen(app: AppHandle, name: String) {
 
                         // 调用引擎查询
                         let fen = chess::board_fen(&camp, board);
+
                         let mut state_lock = state_for_thread.lock().unwrap();
                         let engine = state_lock.engine.as_mut().unwrap();
-                        let result = engine.go(&fen, 10, 1000);
+                        let result = engine.go(&fen, depth, time);
                         if result.is_none() {
                             continue;
                         }
                         (expect_move, expect_board) = analyse(&app, result.unwrap(), board);
                     } else {
                         // 对方先手 跳过分析
-                        debug!("对方先手, 跳过分析");
+                        trace!("对方先手, 跳过分析");
                         last_board = board; // 设置前端棋盘
                         let board_map = chess::board_map(board);
                         app.emit_all("position", &board_map).unwrap();
@@ -160,7 +185,15 @@ pub fn start_listen(app: AppHandle, name: String) {
                 }
 
                 // 棋盘可能在动画中, 延迟后重新确认
-                thread::sleep(Duration::from_micros(360));
+                thread::sleep(Duration::from_millis(
+                    state_for_thread
+                        .lock()
+                        .unwrap()
+                        .config
+                        .as_ref()
+                        .unwrap()
+                        .confirm_interval,
+                ));
                 let conf_image = window.capture();
                 let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
                 if r.is_none() {
@@ -176,7 +209,8 @@ pub fn start_listen(app: AppHandle, name: String) {
 
                 // 检测棋盘是否有效
                 if !chess::board_check(board) {
-                    debug!("棋盘识别无效");
+                    let debug_fen = chess::board_fen(&camp, board);
+                    debug!("棋盘识别无效: {}", debug_fen);
                     continue;
                 }
 
@@ -190,7 +224,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     let fen = chess::board_fen(&camp, board);
                     let mut state_lock = state_for_thread.lock().unwrap();
                     let engine = state_lock.engine.as_mut().unwrap();
-                    let result = engine.go(&fen, 10, 1000);
+                    let result = engine.go(&fen, depth, time);
                     if result.is_none() {
                         continue;
                     }
@@ -206,8 +240,18 @@ pub fn start_listen(app: AppHandle, name: String) {
                 // 状态判断
                 match board_state {
                     chess::BoardState::OneChanged => {
-                        // 理论上不应该出现, 但有可能是动画问题影响, 直接continue
-                        debug!("BoardState is OneChanged");
+                        // 理论上不应该出现, 但有可能是动画问题影响, 记录次数
+                        if invalid_change_count < 3 {
+                            invalid_change_count += 1;
+                            let last_fen = chess::board_fen(&camp, last_board);
+                            let current = chess::board_fen(&camp, board);
+                            debug!("OneChanged last {}", last_fen);
+                            debug!("OneChanged current {}", current);
+                        } else {
+                            // 如果出现次数超过3次, 自动重载
+                            debug!("OneChanged count=3, reload");
+                            first_connect = true;
+                        }
                         continue;
                     }
                     chess::BoardState::MoveChanged => {
@@ -228,18 +272,6 @@ pub fn start_listen(app: AppHandle, name: String) {
                     chess::BoardState::UnknownChanged => {
                         // 理论上只有开始新的一局才会出现, 需要确认一次
                         debug!("棋局变化未知, 重新识别确认");
-                        thread::sleep(Duration::from_micros(200));
-                        let conf_image = window.capture();
-                        let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
-                        if r.is_none() {
-                            continue;
-                        }
-                        let (_, conf_board) = r.unwrap();
-                        if conf_board != board {
-                            // 如果不一致, 返回去重新识别
-                            debug!("棋局变化未知, 重新识别不一致");
-                            continue;
-                        }
                         // 设置棋盘
                         last_board = board;
                         let board_map = chess::board_map(board);
@@ -252,7 +284,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                 let fen = chess::board_fen(&camp, board);
                 let mut state_lock = state_for_thread.lock().unwrap();
                 let engine = state_lock.engine.as_mut().unwrap();
-                let result = engine.go(&fen, 10, 1000);
+                let result = engine.go(&fen, depth, time);
                 if result.is_none() {
                     continue;
                 }
@@ -266,14 +298,13 @@ pub fn start_listen(app: AppHandle, name: String) {
 #[tauri::command]
 pub fn stop_listen() {
     info!("stop listen");
-    let mut state = STATE.lock().unwrap();
-    debug!("get state locked");
-    if let Some(listen_thread) = state.listen_thread.take() {
-        // 释放锁，停止后台线程
-        debug!("释放锁，停止后台线程");
-        drop(state);
-
-        listen_thread.join().unwrap();
+    if let Ok(mut state) = STATE.lock() {
+        if let Some(listen_thread) = state.listen_thread.take() {
+            // 释放锁，停止后台线程
+            debug!("释放锁，停止后台线程");
+            drop(state);
+            listen_thread.join().unwrap();
+        }
     }
     debug!("stoped");
 }
