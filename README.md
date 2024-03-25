@@ -9,3 +9,8 @@
 后端:
  - Rust
  - onnxruntime(yolo)
+
+
+# 应用截图
+
+![天天象棋](./screenshot.png)

@@ -8,7 +8,7 @@ use tauri::{AppHandle, Manager};
 use tracing::{debug, info, trace};
 use xcap::image::{ImageBuffer, Rgba};
 
-use crate::{chess, common, engine::QueryRecords, listen::ListenWindow, STATE};
+use crate::{chess, common, engine::QueryResult, listen::ListenWindow, STATE};
 
 pub fn get_board(
     state: &MutexGuard<'_, crate::SharedState>,
@@ -25,27 +25,28 @@ pub fn get_board(
 
 pub fn analyse(
     app: &AppHandle,
-    mut result: QueryRecords,
+    mut result: QueryResult,
     board: [[char; 9]; 10],
-) -> [[char; 9]; 10] {
+) -> (chess::Changed, [[char; 9]; 10]) {
     // 引擎结果翻译为中文
-    // let mut tmp_board = board;
     let best_pv = result.pvs.first().unwrap();
     let best_move = chess::board_move_chinese(board, best_pv);
     let expect_board = chess::board_move(board, best_pv);
+    let expect_move = chess::Changed::from_pv(best_pv, board);
+
     let mut tmp_board = expect_board;
     result.moves.push(best_move);
-    for pv in result.pvs.iter().skip(1) {
+    for pv in result.pvs.iter().skip(1).take(3) {
         let mv = chess::board_move_chinese(tmp_board, pv);
         result.moves.push(mv);
         tmp_board = chess::board_move(tmp_board, pv);
     }
     // 把结果发送给前端
     info!("分析结果 {:?}", result);
-    app.emit_all("event", result).unwrap();
+    app.emit_all("analyse", result).unwrap();
 
-    // 返回一个预期board
-    expect_board
+    // 返回一个预期move和预期board
+    (expect_move, expect_board)
 }
 
 // 初始化Tauri的command处理
@@ -78,15 +79,15 @@ pub fn start_listen(app: AppHandle, name: String) {
         let state_for_thread = Arc::clone(&state);
         state.lock().unwrap().listen_thread = Some(thread::spawn(move || {
             trace!("into thread");
-            // let mut state_thread_lock = state_for_thread.lock().unwrap();
             // 域变量
             trace!("域变量");
             let mut last_board = [[' '; 9]; 10];
+            let mut expect_move = chess::Changed::default();
             let mut expect_board = [[' '; 9]; 10];
             let mut first_connect = true;
             loop {
                 // 循环固定间隔时间
-                thread::sleep(Duration::from_millis(200));
+                thread::sleep(Duration::from_millis(240));
 
                 // 检查是否需要停止监听
                 if state_for_thread.lock().unwrap().listen_thread.is_none() {
@@ -119,8 +120,10 @@ pub fn start_listen(app: AppHandle, name: String) {
                             debug!("startpos, 我方先手, 防止重复分析");
                             continue;
                         }
-
+                        // 设置前端棋盘
                         last_board = board;
+                        let board_map = chess::board_map(board);
+                        app.emit_all("position", &board_map).unwrap();
 
                         // 调用引擎查询
                         let fen = chess::board_fen(&camp, board);
@@ -130,18 +133,20 @@ pub fn start_listen(app: AppHandle, name: String) {
                         if result.is_none() {
                             continue;
                         }
-                        expect_board = analyse(&app, result.unwrap(), board);
+                        (expect_move, expect_board) = analyse(&app, result.unwrap(), board);
                     } else {
                         // 对方先手 跳过分析
                         debug!("对方先手, 跳过分析");
-                        last_board = board;
+                        last_board = board; // 设置前端棋盘
+                        let board_map = chess::board_map(board);
+                        app.emit_all("position", &board_map).unwrap();
                     }
                     continue;
                 }
 
                 // 判断棋盘是否未发生变化
                 if board == last_board {
-                    debug!("棋盘未发生变化, 跳过分析");
+                    trace!("棋盘未发生变化, 跳过分析");
                     continue;
                 }
 
@@ -150,11 +155,12 @@ pub fn start_listen(app: AppHandle, name: String) {
                     // 跳过分析
                     debug!("棋盘为预期棋盘, 跳过分析");
                     last_board = expect_board;
+                    app.emit_all("move", &expect_move).unwrap();
                     continue;
                 }
 
                 // 棋盘可能在动画中, 延迟后重新确认
-                thread::sleep(Duration::from_micros(100));
+                thread::sleep(Duration::from_micros(360));
                 let conf_image = window.capture();
                 let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
                 if r.is_none() {
@@ -178,6 +184,9 @@ pub fn start_listen(app: AppHandle, name: String) {
                 if first_connect {
                     // 立即分析, 调用引擎查询
                     debug!("首次启动, 立即分析");
+                    // 设置棋盘
+                    let board_map = chess::board_map(board);
+                    app.emit_all("position", &board_map).unwrap();
                     let fen = chess::board_fen(&camp, board);
                     let mut state_lock = state_for_thread.lock().unwrap();
                     let engine = state_lock.engine.as_mut().unwrap();
@@ -185,7 +194,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     if result.is_none() {
                         continue;
                     }
-                    expect_board = analyse(&app, result.unwrap(), board);
+                    (expect_move, expect_board) = analyse(&app, result.unwrap(), board);
                     last_board = board;
                     first_connect = false;
                     continue;
@@ -207,17 +216,19 @@ pub fn start_listen(app: AppHandle, name: String) {
                             // 我方移动
                             debug!("我方移动, {} -> {}, 跳过分析", changed.from, changed.to);
                             last_board = board;
+                            app.emit_all("move", &changed).unwrap();
                             continue;
                         } else {
-                            // 对方移动, 跳过分析
+                            // 对方移动, 需要分析
                             debug!("对方移动, {} -> {}, 需要分析", changed.from, changed.to);
                             last_board = board;
+                            app.emit_all("move", &changed).unwrap();
                         }
                     }
                     chess::BoardState::UnknownChanged => {
                         // 理论上只有开始新的一局才会出现, 需要确认一次
                         debug!("棋局变化未知, 重新识别确认");
-                        thread::sleep(Duration::from_micros(100));
+                        thread::sleep(Duration::from_micros(200));
                         let conf_image = window.capture();
                         let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
                         if r.is_none() {
@@ -229,7 +240,10 @@ pub fn start_listen(app: AppHandle, name: String) {
                             debug!("棋局变化未知, 重新识别不一致");
                             continue;
                         }
+                        // 设置棋盘
                         last_board = board;
+                        let board_map = chess::board_map(board);
+                        app.emit_all("position", &board_map).unwrap();
                     }
                 }
 
@@ -242,7 +256,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                 if result.is_none() {
                     continue;
                 }
-                expect_board = analyse(&app, result.unwrap(), board);
+                (expect_move, expect_board) = analyse(&app, result.unwrap(), board);
                 continue;
             }
         }));

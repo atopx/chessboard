@@ -10,14 +10,14 @@ use tracing::debug;
 use tracing::trace;
 
 #[derive(Debug, serde::Serialize, Default, Clone)]
-pub struct QueryRecords {
-    pub depth: usize,         // 深度
-    pub score: isize,         // 得分
-    pub time: usize,          // 时间
-    pub pvs: Vec<String>,     // 思考(iccs)
-    pub moves: Vec<String>,   // 思考(chinese)
-    pub state: QueryState,    // 状态
-    pub source: &'static str, // 来源
+pub struct QueryResult {
+    pub depth: usize,       // 深度
+    pub score: isize,       // 得分
+    pub time: usize,        // 时间
+    pub pvs: Vec<String>,   // 思考(iccs)
+    pub moves: Vec<String>, // 思考(chinese)
+    pub state: QueryState,  // 状态
+    pub source: String,     // 来源
 }
 
 const SOURCE_ENGINE: &str = "引擎";
@@ -70,7 +70,7 @@ impl Engine {
     fn write_command<A: fmt::Display>(&mut self, args: A) {
         write!(self.stdin, "{}\n", args).expect("write command error");
         self.stdin.flush().expect("write command flush error");
-        debug!("{}", args);
+        trace!("{}", args);
     }
 
     pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
@@ -94,9 +94,9 @@ impl Engine {
         line.trim().to_string()
     }
 
-    fn parse_line(&self, line: String, result: &mut QueryRecords) {
+    fn parse_line(&self, line: String, result: &mut QueryResult) {
         let mut iter = line.split_whitespace();
-        result.source = SOURCE_ENGINE;
+        result.source = SOURCE_ENGINE.to_string();
         loop {
             if let Some(key) = iter.next() {
                 match key {
@@ -104,7 +104,7 @@ impl Engine {
                         result.depth = iter.next().unwrap().parse().unwrap();
                     }
                     "time" => {
-                        result.depth = iter.next().unwrap().parse().unwrap();
+                        result.time = iter.next().unwrap().parse().unwrap();
                     }
                     "score" => match iter.next().unwrap() {
                         "cp" => {
@@ -151,12 +151,12 @@ impl Engine {
         pre_line
     }
 
-    pub fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryRecords> {
+    pub fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
         // 先查询云库
         let mut result = if self.chessdb {
             chessdb::query(fen)
         } else {
-            QueryRecords::default()
+            QueryResult::default()
         };
         match result.state {
             QueryState::Success => Some(result),

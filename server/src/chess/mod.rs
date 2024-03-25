@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 pub const BOARD_MAP: [[&str; 9]; 10] = [
     ["a9", "b9", "c9", "d9", "e9", "f9", "g9", "h9", "i9"],
     ["a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "i8"],
@@ -13,6 +15,12 @@ pub const BOARD_MAP: [[&str; 9]; 10] = [
     ["a0", "b0", "c0", "d0", "e0", "f0", "g0", "h0", "i0"],
 ];
 
+#[derive(Debug, Serialize)]
+pub struct Position {
+    piece: char,
+    pos: String,
+}
+
 #[derive(Debug)]
 pub enum BoardState {
     // 变化了一个棋子
@@ -23,7 +31,7 @@ pub enum BoardState {
     UnknownChanged,
 }
 
-#[derive(Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Debug, PartialEq, Eq, Default, Clone, Serialize)]
 pub enum Camp {
     #[default]
     None,
@@ -81,12 +89,30 @@ pub fn get_verticals(p: char) -> [char; 9] {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Changed {
     pub piece: char,
     pub camp: Camp,
     pub from: String,
     pub to: String,
+}
+
+impl Changed {
+    pub fn from_pv(pv: &str, board: [[char; 9]; 10]) -> Self {
+        let (from, to) = pv.split_at(2);
+        let mut cs = pv.chars();
+        let from_x = cs.next().unwrap() as usize - 97;
+        let from_y = 57 - cs.next().unwrap() as usize;
+        let to_x = cs.next().unwrap() as usize - 97;
+        let to_y = 57 - cs.next().unwrap() as usize;
+        let piece = board[from_y][from_x];
+        Self {
+            piece,
+            camp: Camp::from_piece(piece),
+            from: from.to_string(),
+            to: to.to_string(),
+        }
+    }
 }
 
 // 对比棋盘, 返回值是发生变化的索引
@@ -331,15 +357,15 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
 pub const fn get_piece_name(piece: char) -> char {
     match piece {
         'K' => '帅',
-        'k' => '將',
-        'A' => '士',
+        'k' => '将',
+        'A' => '仕',
         'a' => '士',
         'B' => '相',
         'b' => '象',
         'N' => '马',
-        'n' => '馬',
-        'R' => '車',
-        'r' => '車',
+        'n' => '马',
+        'R' => '车',
+        'r' => '车',
         'C' => '炮',
         'c' => '炮',
         'P' => '兵',
@@ -362,18 +388,18 @@ pub fn board_fix(camp: &Camp, board: &mut [[char; 9]; 10]) {
 }
 
 // board_to_map 棋盘数组转换为坐标模式
-pub fn board_map(board: [[char; 9]; 10]) -> HashMap<&'static str, char> {
-    let mut positions = HashMap::new();
+pub fn board_map(board: [[char; 9]; 10]) -> Vec<Position> {
+    let mut position = vec![];
 
     for row in 0..10 {
         for col in 0..9 {
-            let v = board[row][col];
-            if v != ' ' {
-                positions.insert(BOARD_MAP[row][col], v);
-            }
+            position.push(Position {
+                piece: board[row][col],
+                pos: BOARD_MAP[row][col].to_string(),
+            });
         }
     }
-    positions
+    position
 }
 
 fn overlap_piece_y(board: [[char; 9]; 10], x: usize, y: usize, piece: char) -> Vec<usize> {

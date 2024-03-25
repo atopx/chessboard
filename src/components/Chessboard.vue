@@ -4,60 +4,73 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { onMounted } from "vue";
 
 
-type Piece = {
-  key: string,
-  position: string,
+interface Position {
+  piece: string,
+  pos: string,
 }
 
-// type Move = {
-//   from: string,
-//   to: string,
-// }
+interface Changed {
+  piece: string,
+  from: string,
+  to: string,
+  camp: string,
+}
 
-const startpos: Piece[] = [
-  {key: "R", position: "a0"},
-  {key: "N", position: "b0"},
-  {key: "B", position: "c0"},
-  {key: "A", position: "d0"},
-  {key: "K", position: "e0"},
-  {key: "A", position: "f0"},
-  {key: "B", position: "g0"},
-  {key: "N", position: "h0"},
-  {key: "R", position: "i0"},
-  {key: "C", position: "b2"},
-  {key: "C", position: "h2"},
-  {key: "P", position: "a3"},
-  {key: "P", position: "c3"},
-  {key: "P", position: "e3"},
-  {key: "P", position: "g3"},
-  {key: "P", position: "i3"},
-  {key: "r", position: "a9"},
-  {key: "n", position: "b9"},
-  {key: "b", position: "c9"},
-  {key: "a", position: "d9"},
-  {key: "k", position: "e9"},
-  {key: "a", position: "f9"},
-  {key: "b", position: "g9"},
-  {key: "n", position: "h9"},
-  {key: "r", position: "i9"},
-  {key: "c", position: "b7"},
-  {key: "c", position: "h7"},
-  {key: "p", position: "a6"},
-  {key: "p", position: "c6"},
-  {key: "p", position: "e6"},
-  {key: "p", position: "g6"},
-  {key: "p", position: "i6"},
+
+const startpos: Position[] = [
+  { piece: "R", pos: "a0" },
+  { piece: "N", pos: "b0" },
+  { piece: "B", pos: "c0" },
+  { piece: "A", pos: "d0" },
+  { piece: "K", pos: "e0" },
+  { piece: "A", pos: "f0" },
+  { piece: "B", pos: "g0" },
+  { piece: "N", pos: "h0" },
+  { piece: "R", pos: "i0" },
+  { piece: "C", pos: "b2" },
+  { piece: "C", pos: "h2" },
+  { piece: "P", pos: "a3" },
+  { piece: "P", pos: "c3" },
+  { piece: "P", pos: "e3" },
+  { piece: "P", pos: "g3" },
+  { piece: "P", pos: "i3" },
+  { piece: "r", pos: "a9" },
+  { piece: "n", pos: "b9" },
+  { piece: "b", pos: "c9" },
+  { piece: "a", pos: "d9" },
+  { piece: "k", pos: "e9" },
+  { piece: "a", pos: "f9" },
+  { piece: "b", pos: "g9" },
+  { piece: "n", pos: "h9" },
+  { piece: "r", pos: "i9" },
+  { piece: "c", pos: "b7" },
+  { piece: "c", pos: "h7" },
+  { piece: "p", pos: "a6" },
+  { piece: "p", pos: "c6" },
+  { piece: "p", pos: "e6" },
+  { piece: "p", pos: "g6" },
+  { piece: "p", pos: "i6" },
 ];
 
 // 设置棋子的函数
-async function setPiecesOnBoard(pieces: Piece[]) {
+async function setPiecesOnBoard(pieces: Position[]) {
   // 遍历棋子位置，并在棋盘上创建对应的棋子元素
   for (let index = 0; index < pieces.length; index++) {
-    const piece = pieces[index];
-    // 找到坐标并添加棋子
-    document.getElementById(piece.position)?.firstElementChild?.classList.add(`piece-${piece.key}`);
+    const record = pieces[index];
+    console.log(record)
+    let ele = document.getElementById(record.pos)?.firstElementChild;
+    // 移除坐标原棋子
+    ele?.classList.forEach(cls => {
+        if (cls != "piece") {
+          console.log(`remove ${record.pos} -> ${cls}`)
+          ele?.classList.remove(cls)
+        }
+      });
+    // 添加新棋子
+    if (record.piece != " ") {
+      ele?.classList.add(`piece-${record.piece}`);
+    }
   }
-  document.getElementById("a0")?.classList.add("b-select");
 }
 
 onMounted(async () => {
@@ -67,14 +80,29 @@ onMounted(async () => {
 
 
 listen('position', async (event) => {
-  let pos  = event.payload as Piece[];
+  let pos = event.payload as Position[];
   await setPiecesOnBoard(pos);
 })
 
-// listen('move', async (event) => {
-//   let move = event.payload as Move;
-//   // await
-// });
+listen('move', async (event) => {
+  let change = event.payload as Changed;
+  let token = `piece-${change.piece}`;
+  console.log(change);
+
+  // 原坐标移除棋子
+  document.getElementById(change.from)?.firstElementChild?.classList.remove(token);
+
+  // 移除目标坐标棋子
+  let ele = document.getElementById(change.to)?.firstElementChild;
+  ele?.classList.forEach(cls => {
+    if (cls != "piece") {
+      ele?.classList.remove(cls)
+    }
+  });
+
+  // 目标坐标添加棋子
+  document.getElementById(change.to)?.firstElementChild?.classList.add(token);
+});
 
 
 </script>

@@ -1,12 +1,12 @@
-use super::{QueryRecords, QueryState};
+use super::{QueryResult, QueryState};
 use std::time::Duration;
 
 const URL: &str = "http://www.chessdb.cn/chessdb.php";
 const REFER: &str = "https://www.chessdb.cn/query/";
 const AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
 const SOURCE_CHESSDB: &str = "云库";
-pub fn query(fen: &str) -> QueryRecords {
-    let mut records = super::QueryRecords::default();
+pub fn query(fen: &str) -> QueryResult {
+    let mut records = super::QueryResult::default();
     let resp = reqwest::blocking::Client::new()
         .get(URL)
         .header("User-Agent", AGENT)
@@ -35,7 +35,7 @@ pub fn query(fen: &str) -> QueryRecords {
                     }
                 }
                 records.state = QueryState::Success;
-                records.source = SOURCE_CHESSDB;
+                records.source = SOURCE_CHESSDB.to_string();
             }
         },
         Err(e) => {
