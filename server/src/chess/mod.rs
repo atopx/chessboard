@@ -56,6 +56,10 @@ impl Camp {
             Self::Red
         }
     }
+
+    pub fn is_black(&self) -> bool {
+        return Camp::Black.eq(self);
+    }
 }
 
 const BLACK_VERTICALS: [char; 9] = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -114,7 +118,6 @@ pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Change
         for x in 0..9 {
             if old_board[y][x] != board[y][x] {
                 count += 1;
-                // is from
                 match board[y][x] {
                     ' ' => {
                         changed.piece = old_board[y][x];
@@ -129,7 +132,13 @@ pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Change
 
     match count {
         1 => (changed, BoardState::OneChanged),
-        2 => (changed, BoardState::MoveChanged),
+        2 => {
+            if changed.from == "" || changed.to == "" {
+                (changed, BoardState::OneChanged)
+            } else {
+                (changed, BoardState::MoveChanged)
+            }
+        }
         _ => (changed, BoardState::UnknownChanged),
     }
 }

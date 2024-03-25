@@ -127,10 +127,8 @@ pub fn start_listen(app: AppHandle, name: String) {
                 if r.is_none() {
                     continue;
                 }
-                let (camp, mut board) = r.unwrap();
+                let (camp, board) = r.unwrap();
                 trace!("{:?} {:?}", camp, board);
-                // 修复棋盘
-                chess::board_fix(&camp, &mut board);
 
                 // 判断棋盘是否是初始棋盘
                 if chess::startpos(board) {
@@ -147,6 +145,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                         // 设置前端棋盘
                         last_board = board;
                         let board_map = chess::board_map(board);
+                        app.emit_all("mirror", false).unwrap();
                         app.emit_all("position", &board_map).unwrap();
 
                         // 调用引擎查询
@@ -164,6 +163,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                         trace!("对方先手, 跳过分析");
                         last_board = board; // 设置前端棋盘
                         let board_map = chess::board_map(board);
+                        app.emit_all("mirror", true).unwrap();
                         app.emit_all("position", &board_map).unwrap();
                     }
                     continue;
@@ -200,7 +200,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     continue;
                 }
                 let (_, conf_board) = r.unwrap();
-
+                // chess::board_fix(&conf_camp, &mut conf_board);
                 if conf_board != board {
                     // 如果不一致, 返回去重新识别
                     debug!("棋盘延迟确认失败");
@@ -220,6 +220,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     debug!("首次启动, 立即分析");
                     // 设置棋盘
                     let board_map = chess::board_map(board);
+                    app.emit_all("mirror", camp.is_black()).unwrap();
                     app.emit_all("position", &board_map).unwrap();
                     let fen = chess::board_fen(&camp, board);
                     let mut state_lock = state_for_thread.lock().unwrap();
@@ -275,6 +276,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                         // 设置棋盘
                         last_board = board;
                         let board_map = chess::board_map(board);
+                        app.emit_all("mirror", camp.is_black()).unwrap();
                         app.emit_all("position", &board_map).unwrap();
                     }
                 }

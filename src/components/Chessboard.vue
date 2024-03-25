@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { emit, listen } from "@tauri-apps/api/event";
-import { onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 
 interface Position {
@@ -81,7 +81,20 @@ onMounted(async () => {
     await emit('position', startpos)
 })
 
+const mirror = ref(false);
 
+const wrappedItems = computed(() => {
+    if (mirror.value) {
+        return [{ id: 'i0' }, { id: 'h0' }, { id: 'g0' }, { id: 'f0' }, { id: 'e0' }, { id: 'd0' }, { id: 'c0' }, { id: 'b0' }, { id: 'a0' }, { id: 'i1' }, { id: 'h1' }, { id: 'g1' }, { id: 'f1' }, { id: 'e1' }, { id: 'd1' }, { id: 'c1' }, { id: 'b1' }, { id: 'a1' }, { id: 'i2' }, { id: 'h2' }, { id: 'g2' }, { id: 'f2' }, { id: 'e2' }, { id: 'd2' }, { id: 'c2' }, { id: 'b2' }, { id: 'a2' }, { id: 'i3' }, { id: 'h3' }, { id: 'g3' }, { id: 'f3' }, { id: 'e3' }, { id: 'd3' }, { id: 'c3' }, { id: 'b3' }, { id: 'a3' }, { id: 'i4' }, { id: 'h4' }, { id: 'g4' }, { id: 'f4' }, { id: 'e4' }, { id: 'd4' }, { id: 'c4' }, { id: 'b4' }, { id: 'a4' }, { id: 'i5' }, { id: 'h5' }, { id: 'g5' }, { id: 'f5' }, { id: 'e5' }, { id: 'd5' }, { id: 'c5' }, { id: 'b5' }, { id: 'a5' }, { id: 'i6' }, { id: 'h6' }, { id: 'g6' }, { id: 'f6' }, { id: 'e6' }, { id: 'd6' }, { id: 'c6' }, { id: 'b6' }, { id: 'a6' }, { id: 'i7' }, { id: 'h7' }, { id: 'g7' }, { id: 'f7' }, { id: 'e7' }, { id: 'd7' }, { id: 'c7' }, { id: 'b7' }, { id: 'a7' }, { id: 'i8' }, { id: 'h8' }, { id: 'g8' }, { id: 'f8' }, { id: 'e8' }, { id: 'd8' }, { id: 'c8' }, { id: 'b8' }, { id: 'a8' }, { id: 'i9' }, { id: 'h9' }, { id: 'g9' }, { id: 'f9' }, { id: 'e9' }, { id: 'd9' }, { id: 'c9' }, { id: 'b9' }, { id: 'a9' }];
+
+    } else {
+        return [{ id: 'a9' }, { id: 'b9' }, { id: 'c9' }, { id: 'd9' }, { id: 'e9' }, { id: 'f9' }, { id: 'g9' }, { id: 'h9' }, { id: 'i9' }, { id: 'a8' }, { id: 'b8' }, { id: 'c8' }, { id: 'd8' }, { id: 'e8' }, { id: 'f8' }, { id: 'g8' }, { id: 'h8' }, { id: 'i8' }, { id: 'a7' }, { id: 'b7' }, { id: 'c7' }, { id: 'd7' }, { id: 'e7' }, { id: 'f7' }, { id: 'g7' }, { id: 'h7' }, { id: 'i7' }, { id: 'a6' }, { id: 'b6' }, { id: 'c6' }, { id: 'd6' }, { id: 'e6' }, { id: 'f6' }, { id: 'g6' }, { id: 'h6' }, { id: 'i6' }, { id: 'a5' }, { id: 'b5' }, { id: 'c5' }, { id: 'd5' }, { id: 'e5' }, { id: 'f5' }, { id: 'g5' }, { id: 'h5' }, { id: 'i5' }, { id: 'a4' }, { id: 'b4' }, { id: 'c4' }, { id: 'd4' }, { id: 'e4' }, { id: 'f4' }, { id: 'g4' }, { id: 'h4' }, { id: 'i4' }, { id: 'a3' }, { id: 'b3' }, { id: 'c3' }, { id: 'd3' }, { id: 'e3' }, { id: 'f3' }, { id: 'g3' }, { id: 'h3' }, { id: 'i3' }, { id: 'a2' }, { id: 'b2' }, { id: 'c2' }, { id: 'd2' }, { id: 'e2' }, { id: 'f2' }, { id: 'g2' }, { id: 'h2' }, { id: 'i2' }, { id: 'a1' }, { id: 'b1' }, { id: 'c1' }, { id: 'd1' }, { id: 'e1' }, { id: 'f1' }, { id: 'g1' }, { id: 'h1' }, { id: 'i1' }, { id: 'a0' }, { id: 'b0' }, { id: 'c0' }, { id: 'd0' }, { id: 'e0' }, { id: 'f0' }, { id: 'g0' }, { id: 'h0' }, { id: 'i0' }];
+    }
+});
+
+listen('mirror', async (event) => {
+    mirror.value = event.payload as boolean;
+})
 
 listen('position', async (event) => {
     let pos = event.payload as Position[];
@@ -112,100 +125,11 @@ listen('move', async (event) => {
     document.getElementById(change.to)?.firstElementChild?.classList.add(token);
 });
 
-
 </script>
 
 <template>
     <div id="chessboard">
-        <div id="a9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i9" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i8" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i7" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i6" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i5" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i4" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i3" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i2" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i1" class="piece-wrap"><span class="piece"></span></div>
-        <div id="a0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="b0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="c0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="d0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="e0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="f0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="g0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="h0" class="piece-wrap"><span class="piece"></span></div>
-        <div id="i0" class="piece-wrap"><span class="piece"></span></div>
+        <div v-for="(item, index) in wrappedItems" :key="item.id" :id="item.id" class="piece-wrap"><span
+                class="piece"></span></div>
     </div>
 </template>

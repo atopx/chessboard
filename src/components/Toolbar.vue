@@ -38,6 +38,7 @@ onMounted(async () => {
     await getEngineConfig()
 })
 
+async function copy_fen() {}
 
 async function stopListen() {
     await invoke("stop_listen");
@@ -98,7 +99,7 @@ async function getEngineConfig() {
 
                 <n-flex vertical>
                     <n-button size="small" tertiary type="info">图片识别</n-button>
-                    <n-button size="small" tertiary type="info">复制局面</n-button>
+                    <n-button size="small" tertiary type="info" @click="copy_fen">复制局面</n-button>
                 </n-flex>
             </n-flex>
         </n-form>
