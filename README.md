@@ -17,6 +17,8 @@ TODO:
 
 # 应用截图
 
-![天天象棋](./screenshot.png)
+![JJ象棋](./jjchess.png)
+
+![天天象棋](./qqchess.png)
 
 备注: 本项目仅适用于象棋爱好者和rust爱好者，禁止用于商业或非法场景
