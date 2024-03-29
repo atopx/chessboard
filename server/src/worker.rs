@@ -184,16 +184,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     continue;
                 }
 
-                // 棋盘可能在动画中, 延迟后重新确认
-                thread::sleep(Duration::from_millis(
-                    state_for_thread
-                        .lock()
-                        .unwrap()
-                        .config
-                        .as_ref()
-                        .unwrap()
-                        .confirm_interval,
-                ));
+                thread::sleep(Duration::from_millis(100));
                 let conf_image = window.capture();
                 let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
                 if r.is_none() {
@@ -202,8 +193,17 @@ pub fn start_listen(app: AppHandle, name: String) {
                 let (_, conf_board) = r.unwrap();
                 // chess::board_fix(&conf_camp, &mut conf_board);
                 if conf_board != board {
-                    // 如果不一致, 返回去重新识别
+                    // 如果不一致, 等一会等花再返回去重新识别
                     debug!("棋盘延迟确认失败");
+                    thread::sleep(Duration::from_millis(
+                        state_for_thread
+                            .lock()
+                            .unwrap()
+                            .config
+                            .as_ref()
+                            .unwrap()
+                            .confirm_interval,
+                    ));
                     continue;
                 }
 
