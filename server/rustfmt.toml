@@ -1,0 +1,3 @@
+newline_style = "Unix"
+max_width = 106
+use_small_heuristics = "Max"

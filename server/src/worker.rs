@@ -18,9 +18,10 @@ pub fn get_board(
     let data = model.predict(image).unwrap();
     if let Ok((camp, mut board)) = common::detections_to_board(data) {
         chess::board_fix(&camp, &mut board);
-        return Some((camp, board));
+        Some((camp, board))
+    } else {
+        None
     }
-    None
 }
 
 pub fn analyse(
@@ -62,14 +63,7 @@ pub fn start_listen(app: AppHandle, name: String) {
         let image_h = image.height();
         let image_w = image.width();
 
-        let detections = state
-            .lock()
-            .unwrap()
-            .model
-            .as_ref()
-            .unwrap()
-            .predict(image)
-            .unwrap();
+        let detections = state.lock().unwrap().model.as_ref().unwrap().predict(image).unwrap();
 
         let (x, y, w, h) = common::detections_bound(image_w, image_h, &detections).unwrap();
         window.set(x, y, w, h);
@@ -89,13 +83,7 @@ pub fn start_listen(app: AppHandle, name: String) {
             loop {
                 // 循环固定间隔时间
                 thread::sleep(Duration::from_millis(
-                    state_for_thread
-                        .lock()
-                        .unwrap()
-                        .config
-                        .as_ref()
-                        .unwrap()
-                        .timer_interval,
+                    state_for_thread.lock().unwrap().config.as_ref().unwrap().timer_interval,
                 ));
 
                 // 检查是否需要停止监听
@@ -104,20 +92,8 @@ pub fn start_listen(app: AppHandle, name: String) {
                     break;
                 }
 
-                let depth = state_for_thread
-                    .lock()
-                    .unwrap()
-                    .config
-                    .as_ref()
-                    .unwrap()
-                    .engine_depth;
-                let time = state_for_thread
-                    .lock()
-                    .unwrap()
-                    .config
-                    .as_ref()
-                    .unwrap()
-                    .engine_time;
+                let depth = state_for_thread.lock().unwrap().config.as_ref().unwrap().engine_depth;
+                let time = state_for_thread.lock().unwrap().config.as_ref().unwrap().engine_time;
 
                 // 截图
                 let image = window.capture();
@@ -196,13 +172,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                     // 如果不一致, 等一会等花再返回去重新识别
                     debug!("棋盘延迟确认失败");
                     thread::sleep(Duration::from_millis(
-                        state_for_thread
-                            .lock()
-                            .unwrap()
-                            .config
-                            .as_ref()
-                            .unwrap()
-                            .confirm_interval,
+                        state_for_thread.lock().unwrap().config.as_ref().unwrap().confirm_interval,
                     ));
                     continue;
                 }
@@ -240,7 +210,7 @@ pub fn start_listen(app: AppHandle, name: String) {
 
                 // 状态判断
                 match board_state {
-                    chess::BoardState::OneChanged => {
+                    chess::BoardChangeState::One => {
                         // 理论上不应该出现, 但有可能是动画问题影响, 记录次数
                         if invalid_change_count < 3 {
                             invalid_change_count += 1;
@@ -255,7 +225,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                         }
                         continue;
                     }
-                    chess::BoardState::MoveChanged => {
+                    chess::BoardChangeState::Move => {
                         // 合法移动, 这种应该是最正常, 判断是谁移动
                         if camp.eq(&changed.camp) {
                             // 我方移动
@@ -270,7 +240,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                             app.emit_all("move", &changed).unwrap();
                         }
                     }
-                    chess::BoardState::UnknownChanged => {
+                    chess::BoardChangeState::Unknown => {
                         // 理论上只有开始新的一局才会出现, 需要确认一次
                         debug!("棋局变化未知, 重新识别确认");
                         // 设置棋盘

@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufReader, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load(path: &PathBuf) -> Self {
+    pub fn load(path: &Path) -> Self {
         let config_path = path.join("config.json");
         // 打开文件
         let file = File::open(&config_path).unwrap();

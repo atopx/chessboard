@@ -1,6 +1,6 @@
 pub mod detection;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use detection::{nms, Detection};
 use ndarray::{s, Array, ArrayBase, Dim, OwnedRepr};
@@ -21,7 +21,7 @@ unsafe impl Send for Model {}
 unsafe impl Sync for Model {}
 
 impl Model {
-    pub fn new(libs: &PathBuf) -> ort::Result<Self> {
+    pub fn new(libs: &Path) -> ort::Result<Self> {
         let model_path = libs.join("model.onnx");
         ort::init()
             .with_execution_providers([CoreMLExecutionProvider::default().build()])

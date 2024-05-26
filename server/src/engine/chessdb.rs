@@ -20,9 +20,7 @@ pub fn query(fen: &str) -> QueryResult {
             let text = text.strip_suffix('\0').unwrap();
             match text {
                 "" | "unknown" => records.state = QueryState::NotResult,
-                "invalid board" | "checkmate" | "stalemate" => {
-                    records.state = QueryState::InvalidBoard
-                }
+                "invalid board" | "checkmate" | "stalemate" => records.state = QueryState::InvalidBoard,
                 text => {
                     println!("{}", text);
                     for pair in text.split(',') {

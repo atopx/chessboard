@@ -6,7 +6,7 @@ use tracing::trace;
 pub fn detections_bound(
     w: u32,
     h: u32,
-    detections: &Vec<Detection>,
+    detections: &[Detection],
 ) -> Result<(u32, u32, u32, u32), String> {
     match detections.iter().find(|&&x| x.label == '0') {
         Some(board_det) => {
@@ -25,9 +25,7 @@ pub fn detections_bound(
 }
 
 // detections_to_board 识别结果转换为棋盘结构
-pub fn detections_to_board(
-    detections: Vec<Detection>,
-) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
+pub fn detections_to_board(detections: Vec<Detection>) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
     let mut camp = chess::Camp::None;
     let mut board = [[' '; 9]; 10];
 
@@ -45,7 +43,7 @@ pub fn detections_to_board(
                 trace!("{} row={} col={}", det.label, row, col);
 
                 // 边界处理
-                if col < 0 || col > 8 || row < 0 || row > 9 {
+                if !(0..=8).contains(&col) || !(0..=9).contains(&row) {
                     continue;
                 }
 
@@ -53,7 +51,7 @@ pub fn detections_to_board(
                 board[row as usize][col as usize] = det.label;
 
                 // 判断阵营
-                if camp == chess::Camp::None && 3 <= col && col <= 5 && row >= 7 {
+                if camp == chess::Camp::None && (3..=5).contains(&col) && row >= 7 {
                     match det.label {
                         'k' => camp = chess::Camp::Black,
                         'K' => camp = chess::Camp::Red,

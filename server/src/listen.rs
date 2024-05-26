@@ -21,13 +21,7 @@ impl ListenWindow {
             if window.title() != title {
                 continue;
             };
-            return Some(Self {
-                window,
-                x: 0,
-                y: 0,
-                w: 0,
-                h: 0,
-            });
+            return Some(Self { window, x: 0, y: 0, w: 0, h: 0 });
         }
         None
     }

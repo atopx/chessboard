@@ -3,7 +3,7 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use tracing::debug;
@@ -41,7 +41,7 @@ unsafe impl Send for Engine {}
 unsafe impl Sync for Engine {}
 
 impl Engine {
-    pub fn new(libs: &PathBuf) -> Self {
+    pub fn new(libs: &Path) -> Self {
         let cmd = libs.join("pikafish");
         let nnue = libs.join("pikafish.nnue");
         let mut process = Command::new(cmd)
@@ -54,11 +54,7 @@ impl Engine {
         let stdout = process.stdout.take().unwrap();
         let buffer = BufReader::new(stdout);
 
-        let mut eng = Engine {
-            chessdb: false,
-            stdin: Box::new(stdin),
-            stdout: Box::new(buffer),
-        };
+        let mut eng = Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer) };
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
@@ -69,7 +65,7 @@ impl Engine {
     }
 
     fn write_command<A: fmt::Display>(&mut self, args: A) {
-        write!(self.stdin, "{}\n", args).expect("write command error");
+        writeln!(self.stdin, "{}", args).expect("write command error");
         self.stdin.flush().expect("write command flush error");
         debug!("{}", args);
     }
@@ -119,11 +115,7 @@ impl Engine {
                         }
                         "mate" => {
                             let round: isize = iter.next().unwrap().parse().unwrap();
-                            result.score = if round > 0 {
-                                30000 - round
-                            } else {
-                                (30000 + round) * -1
-                            };
+                            result.score = if round > 0 { 30000 - round } else { -(30000 + round) };
                         }
                         _ => {}
                     },
@@ -160,11 +152,7 @@ impl Engine {
 
     pub fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
         // 先查询云库
-        let mut result = if self.chessdb {
-            chessdb::query(fen)
-        } else {
-            QueryResult::default()
-        };
+        let mut result = if self.chessdb { chessdb::query(fen) } else { QueryResult::default() };
         match result.state {
             QueryState::Success => Some(result),
             QueryState::InvalidBoard => None,

@@ -50,7 +50,7 @@ pub fn nms(mut detections: Vec<Detection>, threshold: f32) -> Vec<Detection> {
     // IOU剔除
     while !detections.is_empty() {
         let current_detection = detections.remove(0);
-        filtered_detections.push(current_detection.clone());
+        filtered_detections.push(current_detection);
         detections.retain(|detection| current_detection.iou(detection) < threshold);
     }
     filtered_detections

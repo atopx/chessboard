@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use serde::Serialize;
 use tracing::warn;
@@ -23,13 +23,13 @@ pub struct Position {
 }
 
 #[derive(Debug)]
-pub enum BoardState {
+pub enum BoardChangeState {
     // 变化了一个棋子
-    OneChanged,
+    One,
     // 正常一步棋移动
-    MoveChanged,
+    Move,
     // 未知多个变化
-    UnknownChanged,
+    Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq, Default, Clone, Serialize)]
@@ -58,7 +58,7 @@ impl Camp {
     }
 
     pub fn is_black(&self) -> bool {
-        return Camp::Black.eq(self);
+        Camp::Black.eq(self)
     }
 }
 
@@ -101,17 +101,12 @@ impl Changed {
         let from_x = cs.next().unwrap() as usize - 97;
         let from_y = 57 - cs.next().unwrap() as usize;
         let piece = board[from_y][from_x];
-        Self {
-            piece,
-            camp: Camp::from_piece(piece),
-            from: from.to_string(),
-            to: to.to_string(),
-        }
+        Self { piece, camp: Camp::from_piece(piece), from: from.to_string(), to: to.to_string() }
     }
 }
 
 // 对比棋盘, 返回值是发生变化的索引
-pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Changed, BoardState) {
+pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Changed, BoardChangeState) {
     let mut changed = Changed::default();
     let mut count = 0;
     for y in 0..10 {
@@ -131,15 +126,15 @@ pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Change
     }
 
     match count {
-        1 => (changed, BoardState::OneChanged),
+        1 => (changed, BoardChangeState::One),
         2 => {
-            if changed.from == "" || changed.to == "" {
-                (changed, BoardState::OneChanged)
+            if changed.from.is_empty() || changed.to.is_empty() {
+                (changed, BoardChangeState::One)
             } else {
-                (changed, BoardState::MoveChanged)
+                (changed, BoardChangeState::Move)
             }
         }
-        _ => (changed, BoardState::UnknownChanged),
+        _ => (changed, BoardChangeState::Unknown),
     }
 }
 
@@ -157,18 +152,13 @@ impl Move {
         let from_y = 57 - cs.next().unwrap() as usize;
         let to_x = cs.next().unwrap() as usize - 97;
         let to_y = 57 - cs.next().unwrap() as usize;
-        Self {
-            from_x,
-            from_y,
-            to_x,
-            to_y,
-        }
+        Self { from_x, from_y, to_x, to_y }
     }
 }
 
 pub fn board_move(board: [[char; 9]; 10], iccs: &str) -> [[char; 9]; 10] {
     let mv = Move::new(iccs);
-    let mut new_board = board.clone();
+    let mut new_board = board;
     let p = new_board[mv.from_y][mv.from_x];
     new_board[mv.to_y][mv.to_x] = p;
     new_board[mv.from_y][mv.from_x] = ' ';
@@ -224,7 +214,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
             match col {
                 'k' => {
                     bk += 1;
-                    if y > 2 || x < 3 || x > 5 {
+                    if y > 2 || !(3..=5).contains(&x) {
                         warn!("黑方'将'不在合法位置内");
                         return false;
                     }
@@ -271,7 +261,7 @@ pub fn board_check(board: [[char; 9]; 10]) -> bool {
                 }
                 'K' => {
                     rk += 1;
-                    if y < 7 || x < 3 || x > 5 {
+                    if y < 7 || !(3..=5).contains(&x) {
                         warn!("红方'将'不在合法位置内, ({}行{}列)", y, x);
                         return false;
                     }
@@ -391,10 +381,7 @@ pub fn board_map(board: [[char; 9]; 10]) -> Vec<Position> {
 
     for row in 0..10 {
         for col in 0..9 {
-            position.push(Position {
-                piece: board[row][col],
-                pos: BOARD_MAP[row][col].to_string(),
-            });
+            position.push(Position { piece: board[row][col], pos: BOARD_MAP[row][col].to_string() });
         }
     }
     position
@@ -402,8 +389,8 @@ pub fn board_map(board: [[char; 9]; 10]) -> Vec<Position> {
 
 fn overlap_piece_y(board: [[char; 9]; 10], x: usize, y: usize, piece: char) -> Vec<usize> {
     let mut other_ys = Vec::new();
-    for i in 0..10 {
-        if i != y && board[i][x] == piece {
+    for (i, value) in board.iter().enumerate() {
+        if i != y && value[x] == piece {
             other_ys.push(i);
         }
     }
@@ -438,45 +425,54 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
         'K' => {
             chinese.push(get_piece_name(piece));
             chinese.push(verticals[mv.from_x]);
-            if mv.from_y < mv.to_y {
-                // 进
-                chinese.push('退');
-                chinese.push(verticals[8]);
-            } else if mv.from_y > mv.to_y {
-                // 退
-                chinese.push('进');
-                chinese.push(verticals[8]);
-            } else {
-                // 平
-                chinese.push('平');
-                chinese.push(verticals[mv.to_x]);
+
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Equal => {
+                    // 平
+                    chinese.push('平');
+                    chinese.push(verticals[mv.to_x]);
+                }
+                Ordering::Less => {
+                    // 进
+                    chinese.push('退');
+                    chinese.push(verticals[8]);
+                }
+                Ordering::Greater => {
+                    // 退
+                    chinese.push('进');
+                    chinese.push(verticals[8]);
+                }
             }
         }
         'k' => {
             chinese.push(get_piece_name(piece));
             chinese.push(verticals[mv.from_x]);
-            if mv.from_y < mv.to_y {
-                // 退
-                chinese.push('进');
-                chinese.push(verticals[0]);
-            } else if mv.from_y > mv.to_y {
-                // 进
-                chinese.push('退');
-                chinese.push(verticals[0]);
-            } else {
-                // 平
-                chinese.push('平');
-                chinese.push(verticals[mv.to_x]);
+
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Less => {
+                    // 退
+                    chinese.push('进');
+                    chinese.push(verticals[0]);
+                }
+                Ordering::Greater => {
+                    // 进
+                    chinese.push('退');
+                    chinese.push(verticals[0]);
+                }
+                Ordering::Equal => {
+                    // 平
+                    chinese.push('平');
+                    chinese.push(verticals[mv.to_x]);
+                }
             }
         }
         'A' | 'B' => {
             chinese.push(get_piece_name(piece));
             chinese.push(verticals[mv.from_x]);
             // 士、象只有进退
-            if mv.from_y < mv.to_y {
-                chinese.push('退');
-            } else {
-                chinese.push('进');
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Less => chinese.push('退'),
+                _ => chinese.push('进'),
             }
             chinese.push(verticals[mv.to_x]);
         }
@@ -484,10 +480,9 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
             chinese.push(get_piece_name(piece));
             chinese.push(verticals[mv.from_x]);
             // 士、象只有进退
-            if mv.from_y < mv.to_y {
-                chinese.push('进');
-            } else {
-                chinese.push('退');
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Less => chinese.push('进'),
+                _ => chinese.push('退'),
             }
             chinese.push(verticals[mv.to_x]);
         }
@@ -507,20 +502,24 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                 }
                 chinese.push(get_piece_name(piece));
             }
-            if mv.from_y < mv.to_y {
-                // 退
-                let step = 9 - mv.to_y + mv.from_y;
-                chinese.push('退');
-                chinese.push(verticals[step]);
-            } else if mv.from_y > mv.to_y {
-                // 进
-                let step = 9 - mv.from_y + mv.to_y;
-                chinese.push('进');
-                chinese.push(verticals[step]);
-            } else {
-                // 平
-                chinese.push('平');
-                chinese.push(verticals[mv.to_x]);
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Less => {
+                    // 退
+                    let step = 9 - mv.to_y + mv.from_y;
+                    chinese.push('退');
+                    chinese.push(verticals[step]);
+                }
+                Ordering::Greater => {
+                    // 进
+                    let step = 9 - mv.from_y + mv.to_y;
+                    chinese.push('进');
+                    chinese.push(verticals[step]);
+                }
+                Ordering::Equal => {
+                    // 平
+                    chinese.push('平');
+                    chinese.push(verticals[mv.to_x]);
+                }
             }
         }
         'r' | 'c' => {
@@ -539,20 +538,24 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                 }
                 chinese.push(get_piece_name(piece));
             }
-            if mv.from_y < mv.to_y {
-                // 进
-                let step = mv.to_y - mv.from_y - 1;
-                chinese.push('进');
-                chinese.push(verticals[step]);
-            } else if mv.from_y > mv.to_y {
-                // 退
-                let step = mv.from_y - mv.to_y - 1;
-                chinese.push('退');
-                chinese.push(verticals[step]);
-            } else {
-                // 平
-                chinese.push('平');
-                chinese.push(verticals[mv.to_x]);
+            match mv.from_y.cmp(&mv.to_y) {
+                Ordering::Less => {
+                    // 进
+                    let step = mv.to_y - mv.from_y - 1;
+                    chinese.push('进');
+                    chinese.push(verticals[step]);
+                }
+                Ordering::Greater => {
+                    // 退
+                    let step = mv.from_y - mv.to_y - 1;
+                    chinese.push('退');
+                    chinese.push(verticals[step]);
+                }
+                Ordering::Equal => {
+                    // 平
+                    chinese.push('平');
+                    chinese.push(verticals[mv.to_x]);
+                }
             }
         }
         'N' => {
@@ -623,30 +626,24 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                     let value = (mv.from_x + 10) * 100 - mv.from_y;
                     other_ys.push(value);
                     other_ys.sort_by(|a, b| b.cmp(a));
-                    let seq = other_ys
-                        .iter()
-                        .position(|&v| v == value)
-                        .map(|i| i + 1)
-                        .unwrap();
+                    let seq = other_ys.iter().position(|&v| v == value).map(|i| i + 1).unwrap();
                     chinese.push(verticals[9 - seq]);
+                } else if other_ys.len() > 1 {
+                    // 找出当前纵向重叠数量
+                    let mut num = 1;
+                    for y in other_ys {
+                        if mv.from_y < y {
+                            break;
+                        }
+                        num += 1;
+                    }
+                    chinese.push_str(num.to_string().as_str());
                 } else {
-                    if other_ys.len() > 1 {
-                        // 找出当前纵向重叠数量
-                        let mut num = 1;
-                        for y in other_ys {
-                            if mv.from_y < y {
-                                break;
-                            }
-                            num += 1;
-                        }
-                        chinese.push_str(num.to_string().as_str());
+                    // 只有前后
+                    if mv.from_y > other_ys[0] {
+                        chinese.push('后');
                     } else {
-                        // 只有前后
-                        if mv.from_y > other_ys[0] {
-                            chinese.push('后');
-                        } else {
-                            chinese.push('前');
-                        }
+                        chinese.push('前');
                     }
                 }
                 chinese.push(get_piece_name(piece));
@@ -673,7 +670,7 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                 if let Some(other_xys) = overlap_piece_xy(board, mv.from_x, piece) {
                     // 其他纵线有重叠
                     for y in &mut other_ys {
-                        *y = mv.from_x * 100 + *y;
+                        *y += mv.from_x * 100;
                     }
 
                     for (x, ys) in &other_xys {
@@ -685,30 +682,24 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                     let value = mv.from_x * 100 + mv.from_y;
                     other_ys.push(value);
                     other_ys.sort_by(|a, b| b.cmp(a));
-                    let seq = other_ys
-                        .iter()
-                        .position(|&v| v == value)
-                        .map(|i| i)
-                        .unwrap();
+                    let seq = other_ys.iter().position(|&v| v == value).unwrap();
                     chinese.push(verticals[seq]);
+                } else if other_ys.len() > 1 {
+                    // 找出当前纵向重叠数量
+                    let mut num = 0;
+                    for y in other_ys {
+                        if mv.from_y > y {
+                            break;
+                        }
+                        num += 1;
+                    }
+                    chinese.push_str(num.to_string().as_str());
                 } else {
-                    if other_ys.len() > 1 {
-                        // 找出当前纵向重叠数量
-                        let mut num = 0;
-                        for y in other_ys {
-                            if mv.from_y > y {
-                                break;
-                            }
-                            num += 1;
-                        }
-                        chinese.push_str(num.to_string().as_str());
+                    // 只有前后
+                    if mv.from_y > other_ys[0] {
+                        chinese.push('前');
                     } else {
-                        // 只有前后
-                        if mv.from_y > other_ys[0] {
-                            chinese.push('前');
-                        } else {
-                            chinese.push('后');
-                        }
+                        chinese.push('后');
                     }
                 }
                 chinese.push(get_piece_name(piece));
@@ -800,9 +791,7 @@ mod tests {
     fn test_chinese() {
         let fen = "2rakab2/9/1cn6/p3p3p/2b2n3/6R2/P3P1c1P/2N1C3C/4N4/2BAKAB2 w";
         let mut board = fen_to_board(fen);
-        for pv in vec![
-            "g4g5", "b7b5", "g5g9", "c5e7", "g9g4", "f9e8", "i2i6", "c7d5",
-        ] {
+        for pv in ["g4g5", "b7b5", "g5g9", "c5e7", "g9g4", "f9e8", "i2i6", "c7d5"] {
             let notice = board_move_chinese(board, pv);
             board = board_move(board, pv);
             println!("pv: {} => {}", pv, notice);
