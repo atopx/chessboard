@@ -11,11 +11,9 @@ pub struct Model {
     session: ort::Session,
 }
 
-const CONFIDENCE_THRESHOLD: f32 = 0.7f32;
-const IOU_THRESHOLD: f32 = 0.5f32;
-const LABELS: [char; 15] = [
-    'n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0',
-];
+const CONFIDENCE_THRESHOLD: f32 = 0.7;
+const IOU_THRESHOLD: f32 = 0.5;
+const LABELS: [char; 15] = ['n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0'];
 
 unsafe impl Send for Model {}
 unsafe impl Sync for Model {}
@@ -23,9 +21,7 @@ unsafe impl Sync for Model {}
 impl Model {
     pub fn new(libs: &Path) -> ort::Result<Self> {
         let model_path = libs.join("model.onnx");
-        ort::init()
-            .with_execution_providers([CoreMLExecutionProvider::default().build()])
-            .commit()?;
+        ort::init().with_execution_providers([CoreMLExecutionProvider::default().build()]).commit()?;
 
         let session = Session::builder()?.with_model_from_file(model_path)?;
 
@@ -44,45 +40,35 @@ impl Model {
         &self,
         image: ImageBuffer<Rgba<u8>, Vec<u8>>,
     ) -> ArrayBase<OwnedRepr<f32>, Dim<[usize; 4]>> {
-        let image = DynamicImage::from(image);
-        let new_img = image.resize_exact(640, 640, FilterType::Triangle);
-        // let new_img = image.resize_exact(640, 640, FilterType::Lanczos3);
+        let image = DynamicImage::from(image).resize_exact(640, 640, FilterType::Triangle);
         let mut input = Array::zeros((1, 3, 640, 640));
-        for pixel in new_img.pixels() {
-            let x = pixel.0 as _;
-            let y = pixel.1 as _;
-            let [r, g, b, _] = pixel.2 .0;
-            input[[0, 0, y, x]] = (r as f32) / 255.;
-            input[[0, 1, y, x]] = (g as f32) / 255.;
-            input[[0, 2, y, x]] = (b as f32) / 255.;
+        for (x, y, pixel) in image.pixels() {
+            let [r, g, b, _] = pixel.0;
+            input[[0, 0, y as usize, x as usize]] = r as f32 / 255.0;
+            input[[0, 1, y as usize, x as usize]] = g as f32 / 255.0;
+            input[[0, 2, y as usize, x as usize]] = b as f32 / 255.0;
         }
         input
     }
 
     fn process_output(&self, outputs: Tensor<f32>) -> Vec<Detection> {
-        // 转置shape为[25200, 20]
         let output = outputs.view().t().slice(s![.., .., 0]).t().into_owned();
-        let mut detections = Vec::new();
-        for row in output.rows() {
-            // 获取最大置信度类别的索引和置信度
-            let mut class_id = 0;
-            let mut max_prob = 0_f32;
-            for idx in 5..20 {
-                let prob = row[idx];
-                if prob > max_prob {
-                    // Subtract 5 to get the correct class index
-                    class_id = idx - 5;
-                    max_prob = prob;
+        output
+            .rows()
+            .into_iter()
+            .filter_map(|row| {
+                let (class_id, max_prob) = (5..20)
+                    .map(|idx| (idx - 5, row[idx]))
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .unwrap();
+
+                let conf = row[4] * max_prob;
+                if conf < CONFIDENCE_THRESHOLD {
+                    None
+                } else {
+                    Some(Detection::new(row[0], row[1], row[2], row[3], LABELS[class_id], conf))
                 }
-            }
-            // 置信度 * 类别置信度
-            let conf = row[4] * max_prob;
-            if conf < CONFIDENCE_THRESHOLD {
-                continue;
-            }
-            let label = LABELS[class_id];
-            detections.push(Detection::new(row[0], row[1], row[2], row[3], label, conf));
-        }
-        detections
+            })
+            .collect()
     }
 }

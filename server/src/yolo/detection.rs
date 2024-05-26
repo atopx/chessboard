@@ -42,16 +42,14 @@ impl Detection {
 
 // 使用IOU计算去除重叠的检测框（非极大值抑制）
 pub fn nms(mut detections: Vec<Detection>, threshold: f32) -> Vec<Detection> {
-    // 置信度排序
     detections.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
 
     let mut filtered_detections = Vec::new();
 
     // IOU剔除
-    while !detections.is_empty() {
-        let current_detection = detections.remove(0);
-        filtered_detections.push(current_detection);
-        detections.retain(|detection| current_detection.iou(detection) < threshold);
+    while let Some(current) = detections.pop() {
+        filtered_detections.push(current);
+        detections.retain(|detection| current.iou(detection) < threshold);
     }
     filtered_detections
 }

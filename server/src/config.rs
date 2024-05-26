@@ -1,10 +1,7 @@
-use std::{
-    fs::File,
-    io::{BufReader, Write},
-    path::{Path, PathBuf},
-};
-
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::{BufReader, Write};
+use std::path::{Path, PathBuf};
 use tracing::{debug, trace};
 
 use crate::STATE;

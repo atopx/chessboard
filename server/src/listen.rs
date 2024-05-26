@@ -1,3 +1,4 @@
+use tracing::debug;
 use xcap::image::{self, GenericImage};
 
 pub struct ListenWindow {
@@ -12,13 +13,12 @@ unsafe impl Send for ListenWindow {}
 unsafe impl Sync for ListenWindow {}
 
 impl ListenWindow {
+    #[tracing::instrument]
     pub fn new(title: String) -> Option<Self> {
         let windows = xcap::Window::all().unwrap();
         for window in windows {
-            if window.is_maximized() {
-                continue;
-            }
-            if window.title() != title {
+            debug!("match window {}", window.title());
+            if window.is_maximized() || window.title() != title {
                 continue;
             };
             return Some(Self { window, x: 0, y: 0, w: 0, h: 0 });

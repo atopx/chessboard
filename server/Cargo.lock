@@ -1805,7 +1805,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.4",
 ]
 
 [[package]]
@@ -4961,9 +4961,9 @@ dependencies = [
 
 [[package]]
 name = "xcap"
-version = "0.0.5"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "696a57ff11f3b9553881d5d5dc69424e376e87e01cd389ce14e1d0e34cbaa53c"
+checksum = "a462fc23e8aab59b6dbd7d717999d4589374ef94142005143e40740187847ccb"
 dependencies = [
  "core-foundation",
  "core-graphics 0.23.1",

@@ -15,7 +15,7 @@ tauri = { version = "1", features = [ "shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ort = { git = "https://github.com/pykeio/ort.git", tag = "v2.0.0-alpha.4", features = ["coreml", "load-dynamic"] }
-xcap = "0.0.5"
+xcap = "0.0.10"
 ndarray = "0.15"
 tokio = { version = "1.36.0", features = ["full"] }
 reqwest = { version = "0.11", features = ["blocking"] }

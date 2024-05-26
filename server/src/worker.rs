@@ -1,9 +1,6 @@
-use std::{
-    sync::{Arc, MutexGuard},
-    thread,
-    time::Duration,
-};
-
+use std::sync::{Arc, MutexGuard};
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tracing::{debug, info, trace};
 use xcap::image::{ImageBuffer, Rgba};

@@ -132,8 +132,6 @@ impl Engine {
             }
             break;
         }
-
-        // None
     }
 
     fn bestmove(&mut self, depth: usize, time: usize) -> String {
