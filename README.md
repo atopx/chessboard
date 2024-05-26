@@ -6,6 +6,7 @@
  - typescript
  - vue3
  - naive-ui
+
 后端:
  - Rust
  - onnxruntime(yolo)
