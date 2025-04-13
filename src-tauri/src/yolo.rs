@@ -29,7 +29,7 @@ fn session() -> &'static ort::session::Session {
             .commit()
             .unwrap();
 
-        ort::session::Session::builder().unwrap().commit_from_file("model/chess.onnx").unwrap()
+        ort::session::Session::builder().unwrap().commit_from_file("libs/chess.onnx").unwrap()
     })
 }
 
