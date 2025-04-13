@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+target/
 dist
 dist-ssr
 *.local
@@ -23,4 +24,10 @@ dist-ssr
 *.sln
 *.sw?
 *.onnx
+*.exe
+*.dll
+*.so
+*.dylib
 pikafish*
+__pycache__
+

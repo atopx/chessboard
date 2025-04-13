@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api';
+import { invoke } from "@tauri-apps/api/core"
 import { NButton, NCard, NFlex, NForm, NFormItem, NInputNumber, NSelect } from 'naive-ui';
 import { onMounted, ref } from 'vue';
 
