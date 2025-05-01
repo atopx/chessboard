@@ -129,7 +129,7 @@ listen('move', async (event) => {
 
 <template>
     <div id="chessboard">
-        <div v-for="(item, index) in wrappedItems" :key="item.id" :id="item.id" class="piece-wrap"><span
+        <div v-for="(item, _) in wrappedItems" :key="item.id" :id="item.id" class="piece-wrap"><span
                 class="piece"></span></div>
     </div>
 </template>

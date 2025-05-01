@@ -1,19 +1,29 @@
-use std::sync::{Arc, MutexGuard};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
-use tracing::{debug, info, trace};
-use xcap::image::{ImageBuffer, Rgba};
 
-use crate::{chess, common, engine::QueryResult, listen::ListenWindow, STATE};
+use tauri::async_runtime::block_on;
+use tauri::AppHandle;
+use tauri::Emitter as _;
+use tracing::debug;
+use tracing::info;
+use tracing::trace;
+use xcap::image::ImageBuffer;
+use xcap::image::Rgba;
 
-pub fn get_board(
-    state: &MutexGuard<'_, crate::SharedState>,
-    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
-) -> Option<(chess::Camp, [[char; 9]; 10])> {
-    let model = state.model.as_ref().unwrap();
-    let data = model.predict(image).unwrap();
-    if let Ok((camp, mut board)) = common::detections_to_board(data) {
+use crate::chess;
+use crate::common;
+use crate::engine::QueryResult;
+use crate::listen::ListenWindow;
+use crate::listen::Window;
+use crate::yolo::predict;
+use crate::yolo::IMAGE_HEIGHT;
+use crate::yolo::IMAGE_WIDTH;
+use crate::STATE;
+
+pub fn get_board(image: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Option<(chess::Camp, [[char; 9]; 10])> {
+    let data = predict(image).unwrap();
+    if let Ok((camp, mut board)) = common::detections_to_board(&data) {
         chess::board_fix(&camp, &mut board);
         Some((camp, board))
     } else {
@@ -22,9 +32,7 @@ pub fn get_board(
 }
 
 pub fn analyse(
-    app: &AppHandle,
-    mut result: QueryResult,
-    board: [[char; 9]; 10],
+    app: &AppHandle, mut result: QueryResult, board: [[char; 9]; 10],
 ) -> (chess::Changed, [[char; 9]; 10]) {
     // 引擎结果翻译为中文
     let best_pv = result.pvs.first().unwrap();
@@ -41,7 +49,7 @@ pub fn analyse(
     }
     // 把结果发送给前端
     info!("分析结果 {:?}", result);
-    app.emit_all("analyse", result).unwrap();
+    app.emit("analyse", result).unwrap();
 
     // 返回一个预期move和预期board
     (expect_move, expect_board)
@@ -49,22 +57,28 @@ pub fn analyse(
 
 // 初始化Tauri的command处理
 #[tauri::command]
-pub fn start_listen(app: AppHandle, name: String) {
+pub async fn start_listen(app: AppHandle, target: Window) -> Result<(), String> {
     trace!("start_listen");
     let state = STATE.clone();
 
     if state.lock().unwrap().listen_thread.is_none() {
         // 初始化监听窗口模块
-        let mut window = ListenWindow::new(name).unwrap(); // 创建窗口实例
+        let mut window = ListenWindow::new(&target, IMAGE_WIDTH, IMAGE_HEIGHT).unwrap(); // 创建窗口实例
         let image = window.capture();
+
         let image_h = image.height();
         let image_w = image.width();
 
-        let detections = state.lock().unwrap().model.as_ref().unwrap().predict(image).unwrap();
+        let detections = predict(image).unwrap();
 
-        let (x, y, w, h) = common::detections_bound(image_w, image_h, &detections).unwrap();
-        window.set(x, y, w, h);
-        info!("WINDOW {} {} {} {}", x, y, w, h);
+        match common::detections_bound(image_w, image_h, &detections) {
+            Ok((x, y, w, h)) => {
+                window.set_sub_bound(x, y, w, h); // 设置窗口边界
+            }
+            Err(e) => {
+                return Err(e); // 未识别到棋盘
+            }
+        }
 
         // 启动后台线程进行截图和处理
         let state_for_thread = Arc::clone(&state);
@@ -96,7 +110,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                 let image = window.capture();
                 // 识别结果转换为棋盘
 
-                let r = get_board(&state_for_thread.lock().unwrap(), image);
+                let r = get_board(image);
                 if r.is_none() {
                     continue;
                 }
@@ -118,15 +132,15 @@ pub fn start_listen(app: AppHandle, name: String) {
                         // 设置前端棋盘
                         last_board = board;
                         let board_map = chess::board_map(board);
-                        app.emit_all("mirror", false).unwrap();
-                        app.emit_all("position", &board_map).unwrap();
+                        app.emit("mirror", false).unwrap();
+                        app.emit("position", &board_map).unwrap();
 
                         // 调用引擎查询
                         let fen = chess::board_fen(&camp, board);
 
                         let mut state_lock = state_for_thread.lock().unwrap();
                         let engine = state_lock.engine.as_mut().unwrap();
-                        let result = engine.go(&fen, depth, time);
+                        let result = block_on(engine.go(&fen, depth, time));
                         if result.is_none() {
                             continue;
                         }
@@ -136,8 +150,8 @@ pub fn start_listen(app: AppHandle, name: String) {
                         trace!("对方先手, 跳过分析");
                         last_board = board; // 设置前端棋盘
                         let board_map = chess::board_map(board);
-                        app.emit_all("mirror", true).unwrap();
-                        app.emit_all("position", &board_map).unwrap();
+                        app.emit("mirror", true).unwrap();
+                        app.emit("position", &board_map).unwrap();
                     }
                     continue;
                 }
@@ -153,13 +167,13 @@ pub fn start_listen(app: AppHandle, name: String) {
                     // 跳过分析
                     debug!("棋盘为预期棋盘, 跳过分析");
                     last_board = expect_board;
-                    app.emit_all("move", &expect_move).unwrap();
+                    app.emit("move", &expect_move).unwrap();
                     continue;
                 }
 
                 thread::sleep(Duration::from_millis(100));
                 let conf_image = window.capture();
-                let r = get_board(&state_for_thread.lock().unwrap(), conf_image);
+                let r = get_board(conf_image);
                 if r.is_none() {
                     continue;
                 }
@@ -187,12 +201,12 @@ pub fn start_listen(app: AppHandle, name: String) {
                     debug!("首次启动, 立即分析");
                     // 设置棋盘
                     let board_map = chess::board_map(board);
-                    app.emit_all("mirror", camp.is_black()).unwrap();
-                    app.emit_all("position", &board_map).unwrap();
+                    app.emit("mirror", camp.is_black()).unwrap();
+                    app.emit("position", &board_map).unwrap();
                     let fen = chess::board_fen(&camp, board);
                     let mut state_lock = state_for_thread.lock().unwrap();
                     let engine = state_lock.engine.as_mut().unwrap();
-                    let result = engine.go(&fen, depth, time);
+                    let result = block_on(engine.go(&fen, depth, time));
                     if result.is_none() {
                         continue;
                     }
@@ -228,13 +242,13 @@ pub fn start_listen(app: AppHandle, name: String) {
                             // 我方移动
                             debug!("我方移动, {} -> {}, 跳过分析", changed.from, changed.to);
                             last_board = board;
-                            app.emit_all("move", &changed).unwrap();
+                            app.emit("move", &changed).unwrap();
                             continue;
                         } else {
                             // 对方移动, 需要分析
                             debug!("对方移动, {} -> {}, 需要分析", changed.from, changed.to);
                             last_board = board;
-                            app.emit_all("move", &changed).unwrap();
+                            app.emit("move", &changed).unwrap();
                         }
                     }
                     chess::BoardChangeState::Unknown => {
@@ -243,8 +257,8 @@ pub fn start_listen(app: AppHandle, name: String) {
                         // 设置棋盘
                         last_board = board;
                         let board_map = chess::board_map(board);
-                        app.emit_all("mirror", camp.is_black()).unwrap();
-                        app.emit_all("position", &board_map).unwrap();
+                        app.emit("mirror", camp.is_black()).unwrap();
+                        app.emit("position", &board_map).unwrap();
                     }
                 }
 
@@ -253,7 +267,7 @@ pub fn start_listen(app: AppHandle, name: String) {
                 let fen = chess::board_fen(&camp, board);
                 let mut state_lock = state_for_thread.lock().unwrap();
                 let engine = state_lock.engine.as_mut().unwrap();
-                let result = engine.go(&fen, depth, time);
+                let result = block_on(engine.go(&fen, depth, time));
                 if result.is_none() {
                     continue;
                 }
@@ -262,6 +276,7 @@ pub fn start_listen(app: AppHandle, name: String) {
             }
         }));
     }
+    Ok(())
 }
 
 #[tauri::command]

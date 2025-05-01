@@ -72,7 +72,6 @@ const logInstRef = ref<LogInst | null>(null)
 <style scoped>
 .analyse-title {
     font-size: x-large;
-    font-family: xiaoli;
 }
 
 .textlog {
@@ -80,6 +79,5 @@ const logInstRef = ref<LogInst | null>(null)
     height: 440px;
     left: 400px;
     top: 0px;
-    font-family: qiti;
 }
 </style>

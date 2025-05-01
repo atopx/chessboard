@@ -1,4 +1,5 @@
-use tracing::{subscriber::set_global_default, Level};
+use tracing::subscriber::set_global_default;
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 /// 初始化tracing库，设置全局订阅者。

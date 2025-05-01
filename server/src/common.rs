@@ -1,45 +1,65 @@
-use super::chess;
-use super::yolo::detection::Detection;
 use tracing::trace;
+
+use super::chess;
+use super::yolo::Detection;
+use super::yolo::IMAGE_HEIGHT;
+use super::yolo::IMAGE_WIDTH;
 
 // detections_bound 获取截图的边界
 pub fn detections_bound(
-    w: u32,
-    h: u32,
-    detections: &[Detection],
+    origin_width: u32, origin_height: u32, detections: &[Detection],
 ) -> Result<(u32, u32, u32, u32), String> {
-    match detections.iter().find(|&&x| x.label == '0') {
-        Some(board_det) => {
-            let rate_x = w as f32 / 640.0;
-            let rate_y = h as f32 / 640.0;
-            let space_x = board_det.w / 8.0;
-            let space_y = board_det.h / 9.0;
-            let x = ((board_det.x0 - space_x) * rate_x) as u32;
-            let y = ((board_det.y0 - space_y) * rate_y) as u32;
-            let w = ((board_det.w + space_x * 2.0) * rate_x) as u32;
-            let h = ((board_det.h + space_y * 2.0) * rate_y) as u32;
-            Ok((x, y, w, h))
-        }
-        None => Err(String::from("1234")),
-    }
+    // 找到棋盘（label == '0'）
+    let board_det = detections.iter().find(|d| d.label == '0').ok_or("未识别到棋盘")?;
+
+    // 计算模型图到原图的缩放
+    let scale_x = origin_width as f32 / IMAGE_WIDTH as f32;
+    let scale_y = origin_height as f32 / IMAGE_HEIGHT as f32;
+
+    // 模型坐标 → 原图坐标
+    let bx0 = (board_det.x0 * scale_x).max(0.0);
+    let by0 = (board_det.y0 * scale_y).max(0.0);
+    let bx1 = (board_det.x1 * scale_x).min(origin_width as f32);
+    let by1 = (board_det.y1 * scale_y).min(origin_height as f32);
+
+    // 计算原图下的“半格”尺寸
+    let board_w = bx1 - bx0;
+    let board_h = by1 - by0;
+    let half_cell_x = board_w / 9.0 / 2.0;
+    let half_cell_y = board_h / 10.0 / 2.0;
+
+    // 计算裁剪框左上
+    let crop_x = (bx0 - half_cell_x).max(0.0) as u32;
+    let crop_y = (by0 - half_cell_y).max(0.0) as u32;
+
+    // 计算裁剪框右下，在原图范围内
+    let x1p = (bx1 + half_cell_x).min(origin_width as f32);
+    let y1p = (by1 + half_cell_y).min(origin_height as f32);
+
+    // 宽高 = 右下 - 左上
+    let width = (x1p - crop_x as f32) as u32;
+    let height = (y1p - crop_y as f32) as u32;
+
+    Ok((crop_x, crop_y, width, height))
 }
 
+const MODEL_CELL_W: f32 = IMAGE_WIDTH as f32 / 9.0;
+const MODEL_CELL_H: f32 = IMAGE_HEIGHT as f32 / 10.0;
+
 // detections_to_board 识别结果转换为棋盘结构
-pub fn detections_to_board(detections: Vec<Detection>) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
+pub fn detections_to_board(detections: &[Detection]) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
     let mut camp = chess::Camp::None;
     let mut board = [[' '; 9]; 10];
 
     match detections.iter().find(|&&x| x.label == '0') {
-        Some(board_det) => {
-            let space_x = board_det.w / 8.0;
-            let space_y = board_det.h / 9.0;
-            for det in detections.iter() {
-                if det.label == board_det.label {
-                    continue;
-                }
-                // 计算棋子定位(转整数: +0.5向下取整)
-                let col = ((det.x - board_det.x0) / space_x + 0.5) as i32;
-                let row = ((det.y - board_det.y0) / space_y + 0.5) as i32;
+        Some(_) => {
+            for det in detections.iter().filter(|d| d.label != '0') {
+                // 中心点
+                let cx = (det.x0 + det.x1) / 2.0;
+                let cy = (det.y0 + det.y1) / 2.0;
+                // 行列：x 轴分成 9 格，y 轴分成 10 格
+                let col = (cx / MODEL_CELL_W).floor() as usize; // 0–8
+                let row = (cy / MODEL_CELL_H).floor() as usize; // 0–9
                 trace!("{} row={} col={}", det.label, row, col);
 
                 // 边界处理
@@ -48,7 +68,7 @@ pub fn detections_to_board(detections: Vec<Detection>) -> Result<(chess::Camp, [
                 }
 
                 // 构建board
-                board[row as usize][col as usize] = det.label;
+                board[row][col] = det.label;
 
                 // 判断阵营
                 if camp == chess::Camp::None && (3..=5).contains(&col) && row >= 7 {

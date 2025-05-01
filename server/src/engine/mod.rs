@@ -3,8 +3,10 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::process::Stdio;
 
 use tracing::debug;
 use tracing::trace;
@@ -35,6 +37,7 @@ pub struct Engine {
     chessdb: bool,
     stdin: Box<dyn Write>,
     stdout: Box<dyn BufRead>,
+    child: std::process::Child, // 添加子进程字段
 }
 
 unsafe impl Send for Engine {}
@@ -42,11 +45,21 @@ unsafe impl Sync for Engine {}
 
 impl Engine {
     pub fn new(libs: &Path) -> Self {
-        let cmd = libs.join("pikafish");
+        #[cfg(target_os = "windows")]
+        let cmd = libs.join("pikafish-windows.exe");
+
+        #[cfg(target_os = "linux")]
+        let cmd = libs.join("pikafish-linux");
+
+        #[cfg(target_os = "macos")]
+        let cmd = libs.join("pikafish-macos");
+
         let nnue = libs.join("pikafish.nnue");
+
         let mut process = Command::new(cmd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()
             .expect("Unable to run engine");
 
@@ -54,15 +67,14 @@ impl Engine {
         let stdout = process.stdout.take().unwrap();
         let buffer = BufReader::new(stdout);
 
-        let mut eng = Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer) };
+        let mut eng =
+            Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer), child: process };
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
     }
 
-    pub fn set_chessdb(&mut self, open: bool) {
-        self.chessdb = open;
-    }
+    pub fn set_chessdb(&mut self, open: bool) { self.chessdb = open; }
 
     fn write_command<A: fmt::Display>(&mut self, args: A) {
         writeln!(self.stdin, "{}", args).expect("write command error");
@@ -70,25 +82,17 @@ impl Engine {
         debug!("{}", args);
     }
 
-    pub fn set_show_wdl(&mut self, open: bool) {
-        self.setoption("UCI_ShowWDL", open);
-    }
+    pub fn set_show_wdl(&mut self, open: bool) { self.setoption("UCI_ShowWDL", open); }
 
-    pub fn set_threads(&mut self, num: usize) {
-        self.setoption("Threads", num);
-    }
+    pub fn set_threads(&mut self, num: usize) { self.setoption("Threads", num); }
 
-    pub fn set_hash(&mut self, size: usize) {
-        self.setoption("Hash", size);
-    }
+    pub fn set_hash(&mut self, size: usize) { self.setoption("Hash", size); }
 
     pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
         self.write_command(format!("setoption name {} value {}", name, value))
     }
 
-    pub fn position(&mut self, fen: &str) {
-        self.write_command(format!("position fen {}", fen))
-    }
+    pub fn position(&mut self, fen: &str) { self.write_command(format!("position fen {}", fen)) }
 
     fn read_line(&mut self) -> String {
         let mut line = String::new();
@@ -148,9 +152,9 @@ impl Engine {
         pre_line
     }
 
-    pub fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
+    pub async fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
         // 先查询云库
-        let mut result = if self.chessdb { chessdb::query(fen) } else { QueryResult::default() };
+        let mut result = if self.chessdb { chessdb::query(fen).await } else { QueryResult::default() };
         match result.state {
             QueryState::Success => Some(result),
             QueryState::InvalidBoard => None,
@@ -165,20 +169,28 @@ impl Engine {
     }
 }
 
+impl Drop for Engine {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path;
 
-    use tracing::{info, Level};
+    use tracing::info;
+    use tracing::Level;
 
     use super::*;
     use crate::logger;
 
-    #[test]
-    fn test_query() {
+    #[tokio::test]
+    async fn test_query() {
         logger::init_tracer(Level::TRACE);
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
-        let result = chessdb::query(fen);
+        let result = chessdb::query(fen).await;
         info!("{:?}", result);
     }
     #[tokio::test]
@@ -187,7 +199,7 @@ mod tests {
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
-        let records = eng.go(fen, 10, 1000);
+        let records = eng.go(fen, 10, 1000).await;
         info!("{:?}", records);
     }
 }
