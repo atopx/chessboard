@@ -3,6 +3,7 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
@@ -36,6 +37,7 @@ pub struct Engine {
     chessdb: bool,
     stdin: Box<dyn Write>,
     stdout: Box<dyn BufRead>,
+    child: std::process::Child, // 添加子进程字段
 }
 
 unsafe impl Send for Engine {}
@@ -43,11 +45,21 @@ unsafe impl Sync for Engine {}
 
 impl Engine {
     pub fn new(libs: &Path) -> Self {
-        let cmd = libs.join("pikafish");
+        #[cfg(target_os = "windows")]
+        let cmd = libs.join("pikafish-windows.exe");
+
+        #[cfg(target_os = "linux")]
+        let cmd = libs.join("pikafish-linux");
+
+        #[cfg(target_os = "macos")]
+        let cmd = libs.join("pikafish-macos");
+
         let nnue = libs.join("pikafish.nnue");
+
         let mut process = Command::new(cmd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()
             .expect("Unable to run engine");
 
@@ -55,7 +67,8 @@ impl Engine {
         let stdout = process.stdout.take().unwrap();
         let buffer = BufReader::new(stdout);
 
-        let mut eng = Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer) };
+        let mut eng =
+            Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer), child: process };
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
@@ -153,6 +166,13 @@ impl Engine {
                 Some(result)
             }
         }
+    }
+}
+
+impl Drop for Engine {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 

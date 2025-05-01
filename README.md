@@ -1,16 +1,33 @@
-# Tauri + Vue + TypeScript
+# 中国象棋学习工具
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+连线网络对战象棋平台，自动识别棋盘给出提示，适用于象棋爱好者和rust爱好者
 
-## Recommended IDE Setup
+集成方案：
+  - 构建桌面端：tauri
+  - 棋盘局面识别：卷积神经网络
+  - 中国象棋引擎：pikafish
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+应用框架:
+ - tauri
 
-## Type Support For `.vue` Imports in TS
+前端:
+ - typescript
+ - vue3
+ - naive-ui
 
-Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
+后端:
+ - Rust
+ - onnxruntime
 
-1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
-2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
+TODO:
+1. 增加配置窗口
+2. 开局库接入
+~~3. 跨平台适配~~
 
-You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
+# 应用截图
+
+![JJ象棋](./jjchess.png)
+
+![天天象棋](./qqchess.png)
+
+备注: 本项目永久开源免费，禁止用于非法目的

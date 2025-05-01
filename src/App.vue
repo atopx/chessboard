@@ -31,7 +31,6 @@ import Toolbar from "./components/Toolbar.vue";
     left: 13px;
     bottom: 5px;
     font-size: x-small;
-    font-family: xiaoli;
 }
 
 .spliter-toolbar {

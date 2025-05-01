@@ -1,0 +1,26 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "identifier": "top.itmeng.xqlink",
+    "bundle": {
+        "windows": {
+            "allowDowngrades": true,
+            "certificateThumbprint": null,
+            "digestAlgorithm": null,
+            "nsis": null,
+            "signCommand": null,
+            "timestampUrl": null,
+            "tsp": false,
+            "webviewInstallMode": {
+                "silent": true,
+                "type": "downloadBootstrapper"
+            },
+            "wix": {
+                "language": "zh-CN"
+            }
+        },
+        "resources": [
+            "../libs/pikafish/pikafish-windows.exe",
+            "../libs/pikafish/pikafish.nnue"
+        ]
+    }
+}

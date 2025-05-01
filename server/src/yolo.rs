@@ -19,7 +19,7 @@ const IOU_THRESHOLD: f32 = 0.5;
 const LABELS: [char; 15] = ['n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0'];
 const LIMIT: [usize; 15] = [2, 2, 2, 1, 2, 2, 5, 2, 2, 2, 1, 2, 2, 5, 1];
 
-fn session() -> &'static ort::session::Session {
+pub fn session() -> &'static ort::session::Session {
     SESSION.get_or_init(|| {
         ort::init()
             .with_execution_providers([

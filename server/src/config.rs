@@ -31,15 +31,33 @@ pub struct Config {
 impl Config {
     pub fn load(path: &Path) -> Self {
         let config_path = path.join("config.json");
-        // 打开文件
-        let file = File::open(&config_path).unwrap();
-        // 创建一个带缓冲区的读取器
-        let reader = BufReader::new(file);
-        // 解析JSON数据
-        let mut config: Config = serde_json::from_reader(reader).unwrap();
-        config.config_path = Some(config_path);
-        // 返回解析后的数据
-        config
+        
+        if !config_path.exists() {
+            let config = Config {
+                config_path: Some(config_path),
+                loglevel: "INFO".to_string(),
+                engine_depth: 20,
+                engine_time: 5000,
+                engine_threads: 4,
+                engine_hash: 64,
+                show_wdl: false,
+                enable_chessdb: true,
+                chessdb_timeout: 5,
+                timer_interval: 100,
+                confirm_interval: 300,
+            };
+            config.save();
+            config
+        } else {
+            let file = File::open(&config_path).unwrap();
+            // 创建一个带缓冲区的读取器
+            let reader = BufReader::new(file);
+            // 解析JSON数据
+            let mut config: Config = serde_json::from_reader(reader).unwrap();
+            config.config_path = Some(config_path);
+            // 返回解析后的数据
+            config
+        }
     }
 
     pub fn save(&self) {

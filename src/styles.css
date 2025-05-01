@@ -1,13 +1,3 @@
-@font-face {
-    font-family: "qiti";
-    src: url("/src/assets/fonts/qiti.ttf");
-}
-
-@font-face {
-    font-family: "xiaoli";
-    src: url("/src/assets/fonts/xiaoli.ttf");
-}
-
 #chessboard {
     width: 360px;
     /* 棋盘图片的宽度 */

@@ -62,7 +62,6 @@ impl ListenWindow {
         let mut pic = self.window.capture_image().unwrap();
         if self.w > 0 {
             pic = pic.sub_image(self.x, self.y, self.w, self.h).to_image();
-            pic.save("../output.png").expect("save image failed")
         }
         pic
     }

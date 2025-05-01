@@ -14,7 +14,7 @@ pub async fn query(fen: &str) -> QueryResult {
         .header("User-Agent", AGENT)
         .header("Referer", REFER)
         .query(&[("action", "querypv"), ("board", fen)])
-        .timeout(Duration::from_secs(1))
+        .timeout(Duration::from_secs(5))
         .send()
         .await;
     match resp {

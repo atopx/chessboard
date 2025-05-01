@@ -118,9 +118,9 @@ async function setEngineThreads() {
     await invoke("set_engine_threads", { num: config.value.threads });
 }
 
-async function setEngineHash() {
-    await invoke("set_engine_hash", { size: config.value.hash });
-}
+// async function setEngineHash() {
+//     await invoke("set_engine_hash", { size: config.value.hash });
+// }
 
 async function getEngineConfig() {
     let result: EngineConfig = await invoke("get_engine_config");
@@ -130,7 +130,7 @@ async function getEngineConfig() {
 
 <template>
     <n-card class="toolbar" :bordered="false" content-style="padding: 0px;">
-        <n-form inline :label-width="80" :model="config" style="font-family: xiaoli">
+        <n-form inline :label-width="80" :model="config">
             <n-form-item label="模式">
                 <n-select
                     size="small"

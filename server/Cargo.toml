@@ -43,8 +43,13 @@ directml = ["ort/directml"]
 load-dynamic = ["ort/load-dynamic"]
 
 
+[profile.dev]
+incremental = true
+
+
 [profile.release]
 codegen-units = 1
-lto = "fat"
+lto = true
 panic = "abort"
-
+opt-level = "s"
+strip = true

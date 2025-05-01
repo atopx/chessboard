@@ -1,10 +1,11 @@
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
 use engine::Engine;
 use lazy_static::lazy_static;
+use tauri::path::BaseDirectory;
+use tauri::Manager;
 
 mod chess;
 mod common;
@@ -31,10 +32,10 @@ lazy_static! {
 pub fn run() {
     logger::init_tracer(tracing::Level::DEBUG);
     tauri::Builder::default()
-        .setup(|_app| {
-            let lib_path = Path::new("../libs");
-            let config = config::Config::load(lib_path);
-            let mut engine = engine::Engine::new(lib_path);
+        .setup(|app| {
+            let config = config::Config::load(&app.path().config_dir().unwrap());
+            let lib_path = app.path().resolve("../libs/pikafish", BaseDirectory::Resource).unwrap();
+            let mut engine = engine::Engine::new(&lib_path);
             engine.set_chessdb(config.enable_chessdb);
             engine.set_show_wdl(config.show_wdl);
             engine.set_hash(config.engine_hash);
