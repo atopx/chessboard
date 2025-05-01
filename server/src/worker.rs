@@ -15,12 +15,15 @@ use crate::chess;
 use crate::common;
 use crate::engine::QueryResult;
 use crate::listen::ListenWindow;
+use crate::listen::Window;
 use crate::yolo::predict;
+use crate::yolo::IMAGE_HEIGHT;
+use crate::yolo::IMAGE_WIDTH;
 use crate::STATE;
 
 pub fn get_board(image: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Option<(chess::Camp, [[char; 9]; 10])> {
     let data = predict(image).unwrap();
-    if let Ok((camp, mut board)) = common::detections_to_board(data) {
+    if let Ok((camp, mut board)) = common::detections_to_board(&data) {
         chess::board_fix(&camp, &mut board);
         Some((camp, board))
     } else {
@@ -54,22 +57,28 @@ pub fn analyse(
 
 // 初始化Tauri的command处理
 #[tauri::command]
-pub async fn start_listen(app: AppHandle, name: String) {
+pub async fn start_listen(app: AppHandle, target: Window) -> Result<(), String> {
     trace!("start_listen");
     let state = STATE.clone();
 
     if state.lock().unwrap().listen_thread.is_none() {
         // 初始化监听窗口模块
-        let mut window = ListenWindow::new(name).unwrap(); // 创建窗口实例
+        let mut window = ListenWindow::new(&target, IMAGE_WIDTH, IMAGE_HEIGHT).unwrap(); // 创建窗口实例
         let image = window.capture();
+
         let image_h = image.height();
         let image_w = image.width();
 
         let detections = predict(image).unwrap();
 
-        let (x, y, w, h) = common::detections_bound(image_w, image_h, &detections).unwrap();
-        window.set(x, y, w, h);
-        info!("WINDOW {} {} {} {}", x, y, w, h);
+        match common::detections_bound(image_w, image_h, &detections) {
+            Ok((x, y, w, h)) => {
+                window.set_sub_bound(x, y, w, h); // 设置窗口边界
+            }
+            Err(e) => {
+                return Err(e); // 未识别到棋盘
+            }
+        }
 
         // 启动后台线程进行截图和处理
         let state_for_thread = Arc::clone(&state);
@@ -267,6 +276,7 @@ pub async fn start_listen(app: AppHandle, name: String) {
             }
         }));
     }
+    Ok(())
 }
 
 #[tauri::command]

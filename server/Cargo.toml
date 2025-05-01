@@ -35,12 +35,16 @@ tokio = { version = "1.44", default-features = false, features = [
 ] }
 lazy_static = "1.5.0"
 
+
 [features]
 cuda = ["ort/cuda"]
 coreml = ["ort/coreml"]
+directml = ["ort/directml"]
 load-dynamic = ["ort/load-dynamic"]
+
 
 [profile.release]
 codegen-units = 1
 lto = "fat"
 panic = "abort"
+

@@ -8,5 +8,5 @@
   "enable_chessdb": false,
   "chessdb_timeout": 5,
   "timer_interval": 100,
-  "confirm_interval": 100
+  "confirm_interval": 300
 }

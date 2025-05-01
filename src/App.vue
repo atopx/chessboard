@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { NDivider, NLayoutFooter } from "naive-ui";
+import { NDivider, NLayoutFooter, NDialogProvider } from "naive-ui";
 import Analyse from "./components/Analyse.vue";
 import Chessboard from "./components/Chessboard.vue";
 import Toolbar from "./components/Toolbar.vue";
-
-
-
 </script>
 
 <template>
+    <n-dialog-provider>
         <!-- 最上面 -->
         <Toolbar />
+
         <n-divider class="spliter-toolbar" />
 
         <!-- 下方左侧 -->
@@ -24,6 +23,7 @@ import Toolbar from "./components/Toolbar.vue";
         <n-layout-footer class="footer" position="absolute">
             <a href="https://github.com/atopx/chessboard.git">atopx: 中国象棋学习工具, 开源免费</a>
         </n-layout-footer>
+    </n-dialog-provider>
 </template>
 
 <style scoped>

@@ -46,6 +46,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            listen::list_windows,
             worker::start_listen,
             worker::stop_listen,
             config::set_engine_depth,
