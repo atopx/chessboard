@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-import { NButton, NCard, NFlex, NForm, NFormItem, NInputNumber, NSelect, NDrawer, NDrawerContent, NSpace, NTooltip, NDivider, NEmpty, NScrollbar, NTag, NIcon, NInput } from "naive-ui";
+import { NButton, NCard, NFlex, NForm, NFormItem, NInputNumber, NSelect, NDrawer, NDrawerContent, NSpace, NTooltip, NDivider, NEmpty, NScrollbar, NTag, NInput } from "naive-ui";
 import { onMounted, ref, h, computed } from "vue";
 import { useDialog } from "naive-ui";
 
