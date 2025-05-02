@@ -27,8 +27,8 @@ pub fn session() -> &'static ort::session::Session {
     SESSION.get_or_init(|| {
         #[cfg(target_os = "windows")]
         let eps = [
-            ort::execution_providers::DirectMLExecutionProvider::default().build(),
             ort::execution_providers::CUDAExecutionProvider::default().build(),
+            ort::execution_providers::DirectMLExecutionProvider::default().build(),
         ];
 
         #[cfg(target_os = "macos")]
