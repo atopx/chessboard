@@ -21,21 +21,23 @@ const LABELS: [char; 15] = [
 ];
 const LIMIT: [usize; 15] = [2, 2, 2, 1, 2, 2, 5, 2, 2, 2, 1, 2, 2, 5, 1];
 
+const MODEL_BYTES: &[u8] = include_bytes!("../../libs/large.onnx");
+
 pub fn session() -> &'static ort::session::Session {
     SESSION.get_or_init(|| {
-        ort::init()
-            .with_execution_providers([
-                #[cfg(feature = "cuda")]
-                ort::execution_providers::CUDAExecutionProvider::default().build(),
-                #[cfg(feature = "coreml")]
-                ort::execution_providers::CoreMLExecutionProvider::default().build(),
-                #[cfg(feature = "directml")]
-                ort::execution_providers::DirectMLExecutionProvider::default().build(),
-            ])
-            .commit()
-            .unwrap();
+        #[cfg(target_os = "windows")]
+        let eps = [
+            ort::execution_providers::DirectMLExecutionProvider::default().build(),
+            ort::execution_providers::CUDAExecutionProvider::default().build(),
+        ];
 
-        const MODEL_BYTES: &[u8] = include_bytes!("../../libs/large.onnx");
+        #[cfg(target_os = "macos")]
+        let eps = [ort::execution_providers::CoreMLExecutionProvider::default().build()];
+
+        #[cfg(target_os = "linux")]
+        let eps = [ort::execution_providers::CUDAExecutionProvider::default().build()];
+
+        ort::init().with_execution_providers(eps).commit().unwrap();
 
         ort::session::Session::builder()
             .unwrap()

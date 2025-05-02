@@ -22,25 +22,32 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ort = { git = "https://github.com/pykeio/ort.git", tag = "v2.0.0-rc.9" }
 xcap = { version = "0.5"}
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-cron-scheduler = "0.13"
 ndarray = "0.16"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 tokio = { version = "1.44", default-features = false, features = [
     "macros",
     "rt-multi-thread",
 ] }
 lazy_static = "1.5.0"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+ort = { version = "=2.0.0-rc.9", features = [ "cuda", "directml" ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ort = { version = "=2.0.0-rc.9", features = [ "coreml" ] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ort = { version = "=2.0.0-rc.9", features = [ "cuda" ] }
 
 [features]
-cuda = ["ort/cuda"]
-coreml = ["ort/coreml"]
-directml = ["ort/directml"]
-load-dynamic = ["ort/load-dynamic"]
+default = ["ort-download-binaries"]
+
+ort-download-binaries = ["ort/download-binaries"]
+ort-load-dynamic = ["ort/load-dynamic"]
 
 
 [profile.dev]
