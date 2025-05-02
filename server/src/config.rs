@@ -31,7 +31,7 @@ pub struct Config {
 impl Config {
     pub fn load(path: &Path) -> Self {
         let config_path = path.join("config.json");
-        
+        debug!("load config from {:?}", config_path);
         if !config_path.exists() {
             let config = Config {
                 config_path: Some(config_path),

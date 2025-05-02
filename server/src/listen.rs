@@ -19,7 +19,13 @@ impl Window {
         let app_name = win.app_name().unwrap();
         let width = win.width().unwrap();
         let height = win.height().unwrap();
-        Self { id, title, app_name, width, height }
+        Self {
+            id,
+            title,
+            app_name,
+            width,
+            height,
+        }
     }
 }
 
@@ -29,7 +35,6 @@ pub async fn list_windows() -> Result<Vec<Window>, String> {
     if windows.is_empty() {
         return Err("no window".to_string());
     }
-    println!("windows: {:?}", windows);
     let mut result = vec![];
     for window in windows.iter() {
         result.push(Window::new(window));
@@ -52,7 +57,13 @@ impl ListenWindow {
         let windows = xcap::Window::all().unwrap();
         for window in windows {
             if window.id().unwrap() == target.id {
-                return Some(Self { window, x: 0, y: 0, w: 0, h: 0 });
+                return Some(Self {
+                    window,
+                    x: 0,
+                    y: 0,
+                    w: 0,
+                    h: 0,
+                });
             }
         }
         None

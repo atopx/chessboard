@@ -58,7 +58,9 @@ impl Camp {
         }
     }
 
-    pub fn is_black(&self) -> bool { Camp::Black.eq(self) }
+    pub fn is_black(&self) -> bool {
+        Camp::Black.eq(self)
+    }
 }
 
 const BLACK_VERTICALS: [char; 9] = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -85,7 +87,7 @@ pub fn get_verticals(p: char) -> [char; 9] {
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct Changed {
     pub piece: char,
     pub camp: Camp,
@@ -100,12 +102,20 @@ impl Changed {
         let from_x = cs.next().unwrap() as usize - 97;
         let from_y = 57 - cs.next().unwrap() as usize;
         let piece = board[from_y][from_x];
-        Self { piece, camp: Camp::from_piece(piece), from: from.to_string(), to: to.to_string() }
+        Self {
+            piece,
+            camp: Camp::from_piece(piece),
+            from: from.to_string(),
+            to: to.to_string(),
+        }
     }
 }
 
 // 对比棋盘, 返回值是发生变化的索引
-pub fn board_diff(old_board: [[char; 9]; 10], board: [[char; 9]; 10]) -> (Changed, BoardChangeState) {
+pub fn board_diff(
+    old_board: [[char; 9]; 10],
+    board: [[char; 9]; 10],
+) -> (Changed, BoardChangeState) {
     let mut changed = Changed::default();
     let mut count = 0;
     for y in 0..10 {
@@ -151,7 +161,12 @@ impl Move {
         let from_y = 57 - cs.next().unwrap() as usize;
         let to_x = cs.next().unwrap() as usize - 97;
         let to_y = 57 - cs.next().unwrap() as usize;
-        Self { from_x, from_y, to_x, to_y }
+        Self {
+            from_x,
+            from_y,
+            to_x,
+            to_y,
+        }
     }
 }
 
@@ -361,7 +376,9 @@ pub const fn get_piece_name(piece: char) -> char {
     }
 }
 
-pub fn startpos(board: [[char; 9]; 10]) -> bool { board == RED_STARTPOS }
+pub fn startpos(board: [[char; 9]; 10]) -> bool {
+    board == RED_STARTPOS
+}
 
 pub fn board_fix(camp: &Camp, board: &mut [[char; 9]; 10]) {
     if Camp::Black.eq(camp) {
@@ -378,7 +395,10 @@ pub fn board_map(board: [[char; 9]; 10]) -> Vec<Position> {
 
     for row in 0..10 {
         for col in 0..9 {
-            position.push(Position { piece: board[row][col], pos: BOARD_MAP[row][col].to_string() });
+            position.push(Position {
+                piece: board[row][col],
+                pos: BOARD_MAP[row][col].to_string(),
+            });
         }
     }
     position
@@ -395,7 +415,9 @@ fn overlap_piece_y(board: [[char; 9]; 10], x: usize, y: usize, piece: char) -> V
 }
 
 fn overlap_piece_xy(
-    board: [[char; 9]; 10], from_x: usize, piece: char,
+    board: [[char; 9]; 10],
+    from_x: usize,
+    piece: char,
 ) -> Option<HashMap<usize, Vec<usize>>> {
     let mut other_xys = HashMap::new();
     for x in 0..9 {
@@ -621,7 +643,11 @@ pub fn board_move_chinese(board: [[char; 9]; 10], iccs: &str) -> String {
                     let value = (mv.from_x + 10) * 100 - mv.from_y;
                     other_ys.push(value);
                     other_ys.sort_by(|a, b| b.cmp(a));
-                    let seq = other_ys.iter().position(|&v| v == value).map(|i| i + 1).unwrap();
+                    let seq = other_ys
+                        .iter()
+                        .position(|&v| v == value)
+                        .map(|i| i + 1)
+                        .unwrap();
                     chinese.push(verticals[9 - seq]);
                 } else if other_ys.len() > 1 {
                     // 找出当前纵向重叠数量
@@ -786,7 +812,9 @@ mod tests {
     fn test_chinese() {
         let fen = "2rakab2/9/1cn6/p3p3p/2b2n3/6R2/P3P1c1P/2N1C3C/4N4/2BAKAB2 w";
         let mut board = fen_to_board(fen);
-        for pv in ["g4g5", "b7b5", "g5g9", "c5e7", "g9g4", "f9e8", "i2i6", "c7d5"] {
+        for pv in [
+            "g4g5", "b7b5", "g5g9", "c5e7", "g9g4", "f9e8", "i2i6", "c7d5",
+        ] {
             let notice = board_move_chinese(board, pv);
             board = board_move(board, pv);
             println!("pv: {} => {}", pv, notice);

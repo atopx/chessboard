@@ -1,14 +1,16 @@
 use tracing::subscriber::set_global_default;
 use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 /// 初始化tracing库，设置全局订阅者。
 pub fn init_tracer(level: Level) {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new("debug,ort=warn,tower_http=warn,hyper=warn,hyper_util=warn,xcap=warn")
+    });
+
     let subscriber = FmtSubscriber::builder()
+        .with_env_filter(filter)
         .with_max_level(level)
-        // 可以选择使用环境变量来控制日志级别
-        // 对于测试环境，使用.with_test_writer()
-        // 对于生产环境，可以省略此行，或将日志输出到文件等其他位置
         .with_test_writer()
         .finish();
 

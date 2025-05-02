@@ -17,15 +17,18 @@ mod worker;
 mod yolo;
 
 // 全局共享状态，用Arc和Mutex包装以实现线程安全共享
-struct SharedState {
+struct AppState {
     config: Option<config::Config>,
     engine: Option<Engine>,
     listen_thread: Option<thread::JoinHandle<()>>,
 }
 
 lazy_static! {
-    static ref STATE: Arc<Mutex<SharedState>> =
-        Arc::new(Mutex::new(SharedState { config: None, engine: None, listen_thread: None }));
+    static ref STATE: Arc<Mutex<AppState>> = Arc::new(Mutex::new(AppState {
+        config: None,
+        engine: None,
+        listen_thread: None
+    }));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -34,7 +37,10 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let config = config::Config::load(&app.path().config_dir().unwrap());
-            let lib_path = app.path().resolve("../libs/pikafish", BaseDirectory::Resource).unwrap();
+            let lib_path = app
+                .path()
+                .resolve("../libs/pikafish", BaseDirectory::Resource)
+                .unwrap();
             let mut engine = engine::Engine::new(&lib_path);
             engine.set_chessdb(config.enable_chessdb);
             engine.set_show_wdl(config.show_wdl);
