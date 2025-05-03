@@ -3,8 +3,9 @@
     "identifier": "top.itmeng.xqlink",
     "bundle": {
         "resources": [
-            "libs/pikafish/pikafish-linux",
-            "libs/pikafish/pikafish.nnue"
+            "../libs/pikafish/pikafish.nnue", 
+            "../libs/pikafish/pikafish-linux",
+            "target/release/libonnxruntime*.so"
         ]
     }
 }

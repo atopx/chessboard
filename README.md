@@ -53,6 +53,9 @@
 ![主界面分析](./docs/mainpage.png)  
 ![参数配置](./docs/configure.png)
 
+##### Linux
+![linux](./docs/linux.png)
+
 
 ## 🛠 开发计划
 

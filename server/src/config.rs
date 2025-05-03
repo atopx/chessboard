@@ -1,3 +1,4 @@
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
@@ -30,6 +31,11 @@ pub struct Config {
 
 impl Config {
     pub fn load(path: &Path) -> Self {
+        let path = path.join("xqlink");
+        if !path.exists() {
+            let _ = fs::create_dir(&path);
+        };
+
         let config_path = path.join("config.json");
         debug!("load config from {:?}", config_path);
         if !config_path.exists() {
