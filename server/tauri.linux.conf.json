@@ -6,6 +6,7 @@
             "../libs/pikafish/pikafish.nnue", 
             "../libs/pikafish/pikafish-linux",
             "target/release/libonnxruntime*.so"
-        ]
+        ],
+        "targets": "deb"
     }
 }
