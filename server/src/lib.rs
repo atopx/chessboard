@@ -30,9 +30,10 @@ lazy_static! {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    logger::init_tracer(tracing::Level::DEBUG);
     tauri::Builder::default()
         .setup(|app| {
+            logger::init_tracer(tracing::Level::DEBUG, &app.path().app_data_dir().unwrap());
+
             let config = config::Config::load(&app.path().config_dir().unwrap());
             let lib_path = app.path().resolve("../libs/pikafish", BaseDirectory::Resource).unwrap();
             let mut engine = engine::Engine::new(&lib_path);

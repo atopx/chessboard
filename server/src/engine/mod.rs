@@ -198,14 +198,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_query() {
-        logger::init_tracer(Level::TRACE);
+        logger::init_tracer(Level::TRACE, &std::path::PathBuf::from("."));
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
         let result = chessdb::query(fen).await;
         info!("{:?}", result);
     }
     #[tokio::test]
     async fn test_engine() {
-        logger::init_tracer(Level::TRACE);
+        logger::init_tracer(Level::TRACE, &std::path::PathBuf::from("."));
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
