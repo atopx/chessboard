@@ -3,11 +3,8 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::Command;
-use std::process::Stdio;
+mod command;
 
 use tracing::debug;
 use tracing::trace;
@@ -46,44 +43,27 @@ unsafe impl Sync for Engine {}
 
 impl Engine {
     pub fn new(libs: &Path) -> Self {
-        #[cfg(target_os = "windows")]
-        let cmd = libs.join("pikafish-windows.exe");
-
-        #[cfg(target_os = "linux")]
-        let cmd = libs.join("pikafish-linux");
-
-        #[cfg(target_os = "macos")]
-        let cmd = libs.join("pikafish-macos");
-
-        #[cfg(target_os = "windows")]
-        let mut process = Command::new(cmd)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .spawn()
-            .expect("Unable to run engine");
-
-        #[cfg(not(target_os = "windows"))]
-        let mut process = Command::new(cmd)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Unable to run engine");
+        let mut child = command::new(libs);
 
         let nnue = libs.join("pikafish.nnue");
 
-        let stdin = process.stdin.take().unwrap();
-        let stdout = process.stdout.take().unwrap();
-        let buffer = BufReader::new(stdout);
+        let stdin = Box::new(child.stdin.take().unwrap());
+        let stdout = Box::new(BufReader::new(child.stdout.take().unwrap()));
 
-        let mut eng =
-            Engine { chessdb: false, stdin: Box::new(stdin), stdout: Box::new(buffer), child: process };
+        let mut eng = Engine {
+            chessdb: false,
+            stdin,
+            stdout,
+            child,
+        };
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
     }
 
-    pub fn set_chessdb(&mut self, open: bool) { self.chessdb = open; }
+    pub fn set_chessdb(&mut self, open: bool) {
+        self.chessdb = open;
+    }
 
     fn write_command<A: fmt::Display>(&mut self, args: A) {
         writeln!(self.stdin, "{}", args).expect("write command error");
@@ -91,17 +71,25 @@ impl Engine {
         debug!("{}", args);
     }
 
-    pub fn set_show_wdl(&mut self, open: bool) { self.setoption("UCI_ShowWDL", open); }
+    pub fn set_show_wdl(&mut self, open: bool) {
+        self.setoption("UCI_ShowWDL", open);
+    }
 
-    pub fn set_threads(&mut self, num: usize) { self.setoption("Threads", num); }
+    pub fn set_threads(&mut self, num: usize) {
+        self.setoption("Threads", num);
+    }
 
-    pub fn set_hash(&mut self, size: usize) { self.setoption("Hash", size); }
+    pub fn set_hash(&mut self, size: usize) {
+        self.setoption("Hash", size);
+    }
 
     pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
         self.write_command(format!("setoption name {} value {}", name, value))
     }
 
-    pub fn position(&mut self, fen: &str) { self.write_command(format!("position fen {}", fen)) }
+    pub fn position(&mut self, fen: &str) {
+        self.write_command(format!("position fen {}", fen))
+    }
 
     fn read_line(&mut self) -> String {
         let mut line = String::new();
@@ -128,7 +116,11 @@ impl Engine {
                         }
                         "mate" => {
                             let round: isize = iter.next().unwrap().parse().unwrap();
-                            result.score = if round > 0 { 30000 - round } else { -(30000 + round) };
+                            result.score = if round > 0 {
+                                30000 - round
+                            } else {
+                                -(30000 + round)
+                            };
                         }
                         _ => {}
                     },
@@ -163,7 +155,11 @@ impl Engine {
 
     pub async fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
         // 先查询云库
-        let mut result = if self.chessdb { chessdb::query(fen).await } else { QueryResult::default() };
+        let mut result = if self.chessdb {
+            chessdb::query(fen).await
+        } else {
+            QueryResult::default()
+        };
         match result.state {
             QueryState::Success => Some(result),
             QueryState::InvalidBoard => None,

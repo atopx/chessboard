@@ -2,6 +2,8 @@ use std::fs;
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
+use std::path::Path;
+use std::path::PathBuf;
 use tracing::Level;
 use tracing_appender::non_blocking;
 use tracing_appender::rolling;
@@ -9,6 +11,29 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::registry;
 use tracing_subscriber::EnvFilter;
+
+#[cfg(target_os = "windows")]
+fn log_dir(home_dir: &Path) -> PathBuf {
+    home_dir
+        .join("AppData")
+        .join("Local")
+        .join("xqlink")
+        .join("logs")
+}
+
+#[cfg(target_os = "macos")]
+fn log_dir(home_dir: &Path) -> PathBuf {
+    home_dir.join("Library").join("Logs").join("xqlink")
+}
+
+#[cfg(target_os = "linux")]
+fn log_dir(home_dir: &Path) -> PathBuf {
+    home_dir
+        .join(".local")
+        .join("share")
+        .join("xqlink")
+        .join("logs")
+}
 
 /// 初始化tracing库，设置全局订阅者
 pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
@@ -24,14 +49,7 @@ pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
         EnvFilter::new(filter_str)
     });
 
-    #[cfg(target_os = "windows")]
-    let log_dir = home_dir.join("AppData").join("Local").join("xqlink").join("logs");
-
-    #[cfg(target_os = "macos")]
-    let log_dir = home_dir.join("Library").join("Logs").join("xqlink");
-
-    #[cfg(target_os = "linux")]
-    let log_dir = home_dir.join(".local").join("share").join("xqlink").join("logs");
+    let log_dir = log_dir(home_dir);
 
     if !log_dir.exists() {
         fs::create_dir_all(&log_dir).expect("无法创建日志目录");
@@ -51,8 +69,10 @@ pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
     *APPENDER_GUARD.lock().unwrap() = Some(_guard);
 
     // 创建控制台输出层
-    let console_layer =
-        tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE).with_ansi(true).compact();
+    let console_layer = tracing_subscriber::fmt::layer()
+        .with_span_events(FmtSpan::CLOSE)
+        .with_ansi(true)
+        .compact();
 
     // 创建文件输出层
     let file_layer = tracing_subscriber::fmt::layer()
@@ -62,5 +82,9 @@ pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
         .compact();
 
     // 组装并设置订阅者
-    registry().with(filter).with(console_layer).with(file_layer).init();
+    registry()
+        .with(filter)
+        .with(console_layer)
+        .with(file_layer)
+        .init();
 }
