@@ -57,14 +57,14 @@ impl Engine {
         let cmd = libs.join("pikafish-macos");
 
         #[cfg(target_os = "windows")]
-        let mut process = Command::new(cmd)
+        let mut process = Command::new("cmd")
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .arg("/C")
+            .arg(cmd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()
             .expect("Unable to run engine");
-
-        println!("cmd {:?}", cmd);
 
         #[cfg(not(target_os = "windows"))]
         let mut process = Command::new(cmd)

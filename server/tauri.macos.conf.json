@@ -4,8 +4,7 @@
     "bundle": {
         "resources": [
             "../libs/pikafish/pikafish-macos",
-            "../libs/pikafish/pikafish.nnue",
-            "target/release/libonnxruntime*.so"
+            "../libs/pikafish/pikafish.nnue"
         ]
     }
 }

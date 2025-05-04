@@ -20,6 +20,9 @@
             }
         },
         "resources": [
-            "../libs/pikafish/pikafish-windows.exe", "../libs/pikafish/pikafish.nnue"]
+            "../libs/pikafish/pikafish-windows.exe",
+            "../libs/pikafish/pikafish.nnue",
+            "target/release/onnxruntime*.dll"
+        ]
     }
 }
