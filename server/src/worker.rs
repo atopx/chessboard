@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -6,6 +5,7 @@ use tauri::async_runtime::block_on;
 use tauri::AppHandle;
 use tauri::Emitter as _;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::trace;
 use xcap::image::ImageBuffer;
@@ -19,7 +19,7 @@ use crate::listen::Window;
 use crate::yolo::predict;
 use crate::yolo::IMAGE_HEIGHT;
 use crate::yolo::IMAGE_WIDTH;
-use crate::STATE;
+use crate::SHARED_STATE;
 
 // 棋盘分析结果
 struct BoardAnalysisResult {
@@ -40,7 +40,7 @@ enum ChessboardState {
 // 分析上下文，保存分析状态和共享数据
 struct AnalysisContext {
     app: AppHandle,
-    state_for_thread: Arc<std::sync::Mutex<crate::AppState>>,
+    // state_for_thread: Arc<std::sync::Mutex<crate::AppState>>,
     window: ListenWindow,
     last_board: [[char; 9]; 10],
     expect_move: chess::Changed,
@@ -51,12 +51,12 @@ struct AnalysisContext {
 impl AnalysisContext {
     fn new(
         app: AppHandle,
-        state: Arc<std::sync::Mutex<crate::AppState>>,
+        // state: Arc<std::sync::Mutex<crate::AppState>>,
         window: ListenWindow,
     ) -> Self {
         Self {
             app,
-            state_for_thread: state,
+            // state_for_thread: state,
             window,
             last_board: [[' '; 9]; 10],
             expect_move: chess::Changed::default(),
@@ -67,18 +67,15 @@ impl AnalysisContext {
 
     // 获取引擎分析深度和时间
     fn get_engine_params(&self) -> (usize, usize) {
-        let lock = self.state_for_thread.lock().unwrap();
-        let config = lock.config.as_ref().unwrap();
+        let state = SHARED_STATE.get().unwrap();
+        let config = state.config.read().unwrap();
         (config.engine_depth, config.engine_time)
     }
 
     // 检查是否需要终止分析线程
     fn should_stop(&self) -> bool {
-        self.state_for_thread
-            .lock()
-            .unwrap()
-            .listen_thread
-            .is_none()
+        let state = SHARED_STATE.get().unwrap();
+        state.listen_thread.lock().unwrap().is_none()
     }
 
     // 获取棋盘图像并分析
@@ -106,9 +103,8 @@ impl AnalysisContext {
         let (depth, time) = self.get_engine_params();
         let fen = chess::board_fen(camp, board);
 
-        let mut state_lock = self.state_for_thread.lock().unwrap();
-        let engine = state_lock.engine.as_mut().unwrap();
-
+        let state = SHARED_STATE.get().unwrap();
+        let mut engine = state.engine.lock().unwrap();
         let result = block_on(engine.go(&fen, depth, time));
         result.as_ref()?;
 
@@ -202,12 +198,11 @@ fn process_analysis_loop(mut context: AnalysisContext) {
         }
 
         // 获取等待间隔
-        let interval = context
-            .state_for_thread
-            .lock()
+        let interval = SHARED_STATE
+            .get()
             .unwrap()
             .config
-            .as_ref()
+            .read()
             .unwrap()
             .timer_interval;
         thread::sleep(Duration::from_millis(interval));
@@ -336,12 +331,11 @@ fn process_analysis_loop(mut context: AnalysisContext) {
                     // 确认棋盘变化是否稳定
                     if !context.confirm_board(board) {
                         debug!("棋盘延迟确认失败");
-                        let confirm_interval = context
-                            .state_for_thread
-                            .lock()
+                        let confirm_interval = SHARED_STATE
+                            .get()
                             .unwrap()
                             .config
-                            .as_ref()
+                            .read()
                             .unwrap()
                             .confirm_interval;
                         thread::sleep(Duration::from_millis(confirm_interval));
@@ -407,46 +401,61 @@ fn process_analysis_loop(mut context: AnalysisContext) {
 #[tauri::command]
 pub async fn start_listen(app: AppHandle, target: Window) -> Result<(), String> {
     trace!("start_listen");
-    let state = STATE.clone();
-
-    if state.lock().unwrap().listen_thread.is_none() {
-        // 初始化监听窗口模块
-        let mut window = ListenWindow::new(&target, IMAGE_WIDTH, IMAGE_HEIGHT).unwrap(); // 创建窗口实例
-        let image = window.capture();
-
-        let image_h = image.height();
-        let image_w = image.width();
-
-        let detections = predict(image).unwrap();
-
-        match common::detections_bound(image_w, image_h, &detections) {
-            Ok((x, y, w, h)) => {
-                window.set_sub_bound(x, y, w, h); // 设置窗口边界
-            }
-            Err(e) => {
-                return Err(e); // 未识别到棋盘
-            }
-        }
-
-        // 创建分析上下文
-        let context = AnalysisContext::new(app.clone(), Arc::clone(&state), window);
-
-        // 启动后台线程进行截图和处理
-        let listen_thread = thread::spawn(move || {
-            trace!("into thread");
-            process_analysis_loop(context);
-        });
-
-        state.lock().unwrap().listen_thread = Some(listen_thread);
+    if SHARED_STATE
+        .get()
+        .unwrap()
+        .listen_thread
+        .try_lock()
+        .is_err()
+    {
+        error!("current listen thread is running, please stop it first");
+        return Err("已经在监听中".to_string());
     }
+
+    // 初始化监听窗口模块
+    let mut window = ListenWindow::new(&target, IMAGE_WIDTH, IMAGE_HEIGHT).unwrap(); // 创建窗口实例
+    let image = window.capture();
+
+    let image_h = image.height();
+    let image_w = image.width();
+
+    let detections = predict(image).unwrap();
+
+    match common::detections_bound(image_w, image_h, &detections) {
+        Ok((x, y, w, h)) => {
+            window.set_sub_bound(x, y, w, h); // 设置窗口边界
+        }
+        Err(e) => {
+            return Err(e); // 未识别到棋盘
+        }
+    }
+
+    // 创建分析上下文
+    let context = AnalysisContext::new(app.clone(), window);
+
+    // 启动后台线程进行截图和处理
+    let listen_thread = thread::spawn(move || {
+        trace!("into thread");
+        process_analysis_loop(context);
+    });
+
+    SHARED_STATE
+        .get()
+        .unwrap()
+        .listen_thread
+        .lock()
+        .unwrap()
+        .replace(listen_thread);
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn stop_listen() {
     info!("stop listen");
-    if let Ok(mut state) = STATE.lock() {
-        if let Some(listen_thread) = state.listen_thread.take() {
+    let shared_state = SHARED_STATE.get().unwrap();
+    if let Ok(mut state) = shared_state.listen_thread.lock() {
+        if let Some(listen_thread) = state.take() {
             // 释放锁，停止后台线程
             debug!("释放锁，停止后台线程");
             drop(state);

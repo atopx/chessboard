@@ -8,9 +8,8 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::debug;
-use tracing::trace;
 
-use crate::STATE;
+use crate::SHARED_STATE;
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -97,15 +96,13 @@ pub struct EngineConfig {
 
 #[tauri::command]
 pub fn get_engine_config() -> EngineConfig {
-    let state = STATE.lock().unwrap();
-    trace!("get_engine_config");
-    state.config.as_ref().unwrap().get_engine_config()
+    SHARED_STATE.get().unwrap().config.read().unwrap().get_engine_config()
 }
 
 #[tauri::command]
 pub fn set_engine_depth(depth: usize) {
-    let mut state = STATE.lock().unwrap();
-    let config = state.config.as_mut().unwrap();
+    let state = SHARED_STATE.get().unwrap();
+    let mut config = state.config.write().unwrap();
     config.engine_depth = depth;
     config.save();
     debug!("set_engine_depth: {}", depth);
@@ -113,8 +110,8 @@ pub fn set_engine_depth(depth: usize) {
 
 #[tauri::command]
 pub fn set_engine_time(time: f32) {
-    let mut state = STATE.lock().unwrap();
-    let config = state.config.as_mut().unwrap();
+    let state = SHARED_STATE.get().unwrap();
+    let mut config = state.config.write().unwrap();
     config.engine_time = (time * 1000.0) as usize;
     config.save();
     debug!("set_engine_time: {}", time);
@@ -122,8 +119,8 @@ pub fn set_engine_time(time: f32) {
 
 #[tauri::command]
 pub fn set_engine_threads(num: usize) {
-    let mut state = STATE.lock().unwrap();
-    let config = state.config.as_mut().unwrap();
+    let state = SHARED_STATE.get().unwrap();
+    let mut config = state.config.write().unwrap();
     config.engine_threads = num;
     config.save();
     debug!("set_engine_threads: {}", num);
@@ -131,8 +128,8 @@ pub fn set_engine_threads(num: usize) {
 
 #[tauri::command]
 pub fn set_engine_hash(size: usize) {
-    let mut state = STATE.lock().unwrap();
-    let config = state.config.as_mut().unwrap();
+    let state = SHARED_STATE.get().unwrap();
+    let mut config = state.config.write().unwrap();
     config.engine_hash = size;
     config.save();
     debug!("set_engine_hash: {}", size);

@@ -84,6 +84,3 @@ impl ListenWindow {
         self.h = h;
     }
 }
-
-unsafe impl Send for ListenWindow {}
-unsafe impl Sync for ListenWindow {}

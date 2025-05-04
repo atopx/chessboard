@@ -1,9 +1,10 @@
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
+use std::sync::RwLock;
 use std::thread;
 
 use engine::Engine;
-use lazy_static::lazy_static;
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 
@@ -17,16 +18,13 @@ mod worker;
 mod yolo;
 
 // 全局共享状态，用Arc和Mutex包装以实现线程安全共享
-struct AppState {
-    config: Option<config::Config>,
-    engine: Option<Engine>,
-    listen_thread: Option<thread::JoinHandle<()>>,
+struct SharedState {
+    config: Arc<RwLock<config::Config>>,
+    engine: Arc<Mutex<Engine>>,
+    listen_thread: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
-lazy_static! {
-    static ref STATE: Arc<Mutex<AppState>> =
-        Arc::new(Mutex::new(AppState { config: None, engine: None, listen_thread: None }));
-}
+static SHARED_STATE: OnceLock<SharedState> = OnceLock::new();
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,16 +32,25 @@ pub fn run() {
         .setup(|app| {
             logger::init_tracer(tracing::Level::DEBUG, &app.path().app_data_dir().unwrap());
 
-            let config = config::Config::load(&app.path().config_dir().unwrap());
-            let lib_path = app.path().resolve("../libs/pikafish", BaseDirectory::Resource).unwrap();
-            let mut engine = engine::Engine::new(&lib_path);
-            engine.set_chessdb(config.enable_chessdb);
-            engine.set_show_wdl(config.show_wdl);
-            engine.set_hash(config.engine_hash);
-            engine.set_threads(config.engine_threads);
-            let mut state = STATE.lock().unwrap();
-            state.engine = Some(engine);
-            state.config = Some(config);
+            let _ = SHARED_STATE.get_or_init(|| {
+                let config = config::Config::load(&app.path().config_dir().unwrap());
+                let lib_path = app
+                    .path()
+                    .resolve("../libs/pikafish", BaseDirectory::Resource)
+                    .unwrap();
+                let mut engine = engine::Engine::new(&lib_path);
+                engine.set_chessdb(config.enable_chessdb);
+                engine.set_show_wdl(config.show_wdl);
+                engine.set_hash(config.engine_hash);
+                engine.set_threads(config.engine_threads);
+
+                SharedState {
+                    config: Arc::new(RwLock::new(config)),
+                    engine: Arc::new(Mutex::new(engine)),
+                    listen_thread: Mutex::new(None),
+                }
+            });
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
