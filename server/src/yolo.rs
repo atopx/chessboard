@@ -16,9 +16,7 @@ pub const IMAGE_WIDTH: usize = 640;
 pub const IMAGE_HEIGHT: usize = 640;
 const CONFIDENCE_THRESHOLD: f32 = 0.7;
 const IOU_THRESHOLD: f32 = 0.5;
-const LABELS: [char; 15] = [
-    'n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0',
-];
+const LABELS: [char; 15] = ['n', 'b', 'a', 'k', 'r', 'c', 'p', 'R', 'N', 'A', 'K', 'B', 'C', 'P', '0'];
 const LIMIT: [usize; 15] = [2, 2, 2, 1, 2, 2, 5, 2, 2, 2, 1, 2, 2, 5, 1];
 
 const MODEL_BYTES: &[u8] = include_bytes!("../../libs/large.onnx");
@@ -39,10 +37,7 @@ pub fn session() -> &'static ort::session::Session {
 
         ort::init().with_execution_providers(eps).commit().unwrap();
 
-        ort::session::Session::builder()
-            .unwrap()
-            .commit_from_memory(MODEL_BYTES)
-            .unwrap()
+        ort::session::Session::builder().unwrap().commit_from_memory(MODEL_BYTES).unwrap()
     })
 }
 
@@ -60,13 +55,8 @@ pub fn predict(origin_img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> ort::Result<Vec<De
         input[[0, 2, y as usize, x as usize]] = b as f32 / 255.0;
     }
     let outputs = session().run(inputs!["images" => input.view()]?)?;
-    let output = outputs["output"]
-        .try_extract_tensor::<f32>()?
-        .view()
-        .t()
-        .slice(s![.., .., 0])
-        .t()
-        .to_owned();
+    let output =
+        outputs["output"].try_extract_tensor::<f32>()?.view().t().slice(s![.., .., 0]).t().to_owned();
 
     let mut detections = output
         .rows()
@@ -81,9 +71,7 @@ pub fn predict(origin_img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> ort::Result<Vec<De
             if conf < CONFIDENCE_THRESHOLD {
                 None
             } else {
-                Some(Detection::new(
-                    row[0], row[1], row[2], row[3], class_id, conf,
-                ))
+                Some(Detection::new(row[0], row[1], row[2], row[3], class_id, conf))
             }
         })
         .collect();

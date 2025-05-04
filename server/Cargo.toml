@@ -35,27 +35,16 @@ tokio = { version = "1.44", default-features = false, features = [
 lazy_static = "1.5.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-ort = { version = "=2.0.0-rc.9", features = [
-    "cuda",
-    "directml",
-    "download-binaries",
-    "load-dynamic",
-] }
+ort = { version = "=2.0.0-rc.9", features = ["cuda", "directml"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-ort = { version = "=2.0.0-rc.9", features = ["coreml", "load-dynamic"] }
+ort = { version = "=2.0.0-rc.9", features = ["coreml"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-ort = { version = "=2.0.0-rc.9", features = [
-    "cuda",
-    "download-binaries",
-    "load-dynamic",
-] }
-
+ort = { version = "=2.0.0-rc.9", features = ["cuda"] }
 
 [profile.dev]
 incremental = true
-
 
 [profile.release]
 codegen-units = 1

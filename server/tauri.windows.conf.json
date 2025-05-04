@@ -19,10 +19,10 @@
                 "language": "zh-CN"
             }
         },
-        "resources": [
-            "../libs/pikafish/pikafish-windows.exe",
-            "../libs/pikafish/pikafish.nnue",
-            "target/release/onnxruntime*.dll"
-        ]
+        "resources": {
+            "../libs/windows/*.dll": "./",
+            "../libs/pikafish/pikafish-windows.exe": "../libs/pikafish/pikafish-windows.exe",
+            "../libs/pikafish/pikafish.nnue": "../libs/pikafish/pikafish.nnue"
+        }
     }
 }

@@ -3,6 +3,8 @@ use std::fmt;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
@@ -45,9 +47,6 @@ unsafe impl Sync for Engine {}
 impl Engine {
     pub fn new(libs: &Path) -> Self {
         #[cfg(target_os = "windows")]
-        use std::os::windows::process::CommandExt;
-
-        #[cfg(target_os = "windows")]
         let cmd = libs.join("pikafish-windows.exe");
 
         #[cfg(target_os = "linux")]
@@ -57,12 +56,10 @@ impl Engine {
         let cmd = libs.join("pikafish-macos");
 
         #[cfg(target_os = "windows")]
-        let mut process = Command::new("cmd")
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .arg("/C")
-            .arg(cmd)
+        let mut process = Command::new(cmd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()
             .expect("Unable to run engine");
 
@@ -183,6 +180,7 @@ impl Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
+        self.write_command("quit");
         let _ = self.child.kill();
         let _ = self.child.wait();
     }

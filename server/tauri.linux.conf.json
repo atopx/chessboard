@@ -2,11 +2,11 @@
     "$schema": "https://schema.tauri.app/config/2",
     "identifier": "top.itmeng.xqlink",
     "bundle": {
+        "targets": "deb",
         "resources": [
-            "../libs/pikafish/pikafish.nnue", 
+            "../libs/pikafish/pikafish.nnue",
             "../libs/pikafish/pikafish-linux",
             "target/release/libonnxruntime*.so"
-        ],
-        "targets": "deb"
+        ]
     }
 }
