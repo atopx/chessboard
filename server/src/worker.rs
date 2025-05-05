@@ -14,7 +14,6 @@ use xcap::image::Rgba;
 use crate::chess;
 use crate::common;
 use crate::engine::QueryResult;
-use crate::engine::SearchParams;
 use crate::listen::ListenWindow;
 use crate::listen::Window;
 use crate::yolo::predict;
@@ -98,13 +97,7 @@ impl AnalysisContext {
         let config = SHARED_STATE.get().unwrap().config.read().unwrap();
         let state = SHARED_STATE.get().unwrap();
         let mut engine = state.engine.lock().unwrap();
-        let result = block_on(engine.search(&SearchParams {
-            fen,
-            depth: config.engine_depth,
-            time: config.engine_time,
-            chessdb_enabled: config.chessdb_enabled,
-            chessdb_timeout: config.chessdb_timeout,
-        }));
+        let result = block_on(engine.search(&fen, &config.engine));
         result.as_ref()?;
 
         let (expect_move, expect_board) = analyse(&self.app, result.unwrap(), board);

@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tracing::debug;
 
+use crate::engine::EngineConfig;
 use crate::SHARED_STATE;
 
 #[derive(Serialize, Deserialize)]
@@ -17,15 +18,22 @@ pub struct Config {
     config_path: Option<PathBuf>,
     // trace, debug, info, wran, silent
     pub loglevel: String,
-    pub engine_depth: usize,
-    pub engine_time: usize,
-    pub engine_threads: usize,
-    pub engine_hash: usize,
-    pub show_wdl: bool,
-    pub chessdb_enabled: bool,
-    pub chessdb_timeout: u64,
     pub timer_interval: u64,
     pub confirm_interval: u64,
+
+    pub engine: EngineConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            config_path: None,
+            loglevel: "INFO".to_string(),
+            timer_interval: 100,
+            confirm_interval: 200,
+            engine: Default::default(),
+        }
+    }
 }
 
 impl Config {
@@ -36,38 +44,31 @@ impl Config {
         };
 
         let config_path = path.join("config.json");
-        debug!("load config from {:?}", config_path);
-        if !config_path.exists() {
-            let config = Config {
-                config_path: Some(config_path),
-                loglevel: "INFO".to_string(),
-                engine_depth: 20,
-                engine_time: 5000,
-                engine_threads: 4,
-                engine_hash: 64,
-                show_wdl: false,
-                chessdb_enabled: true,
-                chessdb_timeout: 5,
-                timer_interval: 100,
-                confirm_interval: 300,
-            };
-            config.save();
-            config
-        } else {
+        debug!("load config from '{}'", config_path.display());
+
+        if config_path.exists() {
             let file = File::open(&config_path).unwrap();
-            // 创建一个带缓冲区的读取器
             let reader = BufReader::new(file);
-            // 解析JSON数据
-            let mut config: Config = serde_json::from_reader(reader).unwrap();
-            config.config_path = Some(config_path);
-            // 返回解析后的数据
-            config
+            if let Ok(config) = serde_json::from_reader(reader) {
+                return config;
+            };
+
+            // 解析失败代表配置不兼容, 直接删除后重新使用默认配置，后续考虑增量更新方式
+            std::fs::remove_file(&config_path).unwrap();
+            debug!("remove old config '{}'", config_path.display())
         }
+
+        let config = Config {
+            config_path: Some(config_path),
+            ..Default::default()
+        };
+        config.save();
+        config
     }
 
     pub fn save(&self) {
         let path = self.config_path.as_ref().unwrap();
-        debug!("save config to {:?}", path);
+        debug!("save config to '{}'", path.display());
         // 将对象序列化为格式化的JSON字符串
         let json_string = serde_json::to_string_pretty(self).unwrap();
 
@@ -75,68 +76,56 @@ impl Config {
         let mut file = File::create(path).unwrap();
         file.write_all(json_string.as_bytes()).unwrap();
     }
-
-    pub fn get_engine_config(&self) -> EngineConfig {
-        EngineConfig {
-            depth: self.engine_depth,
-            time: self.engine_time as f32 / 1000.0,
-            threads: self.engine_threads,
-            hash: self.engine_hash,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct EngineConfig {
-    pub depth: usize,
-    pub time: f32,
-    pub threads: usize,
-    pub hash: usize,
 }
 
 #[tauri::command]
-pub fn get_engine_config() -> EngineConfig {
-    SHARED_STATE
-        .get()
-        .unwrap()
-        .config
-        .read()
-        .unwrap()
-        .get_engine_config()
+pub async fn get_engine_config() -> EngineConfig {
+    SHARED_STATE.get().unwrap().config.read().unwrap().engine
 }
 
 #[tauri::command]
-pub fn set_engine_depth(depth: usize) {
+pub async fn set_engine_depth(depth: usize) {
     let state = SHARED_STATE.get().unwrap();
     let mut config = state.config.write().unwrap();
-    config.engine_depth = depth;
+    config.engine.depth = depth;
     config.save();
     debug!("set_engine_depth: {}", depth);
 }
 
 #[tauri::command]
-pub fn set_engine_time(time: f32) {
+pub async fn set_engine_time(time: f32) {
     let state = SHARED_STATE.get().unwrap();
     let mut config = state.config.write().unwrap();
-    config.engine_time = (time * 1000.0) as usize;
+    config.engine.time = (time * 1000.0) as usize;
     config.save();
     debug!("set_engine_time: {}", time);
 }
 
 #[tauri::command]
-pub fn set_engine_threads(num: usize) {
+pub async fn set_engine_threads(num: usize) {
     let state = SHARED_STATE.get().unwrap();
     let mut config = state.config.write().unwrap();
-    config.engine_threads = num;
+    config.engine.threads = num;
     config.save();
     debug!("set_engine_threads: {}", num);
 }
 
 #[tauri::command]
-pub fn set_engine_hash(size: usize) {
+pub async fn set_engine_hash(size: usize) {
     let state = SHARED_STATE.get().unwrap();
     let mut config = state.config.write().unwrap();
-    config.engine_hash = size;
+    config.engine.hash = size;
     config.save();
     debug!("set_engine_hash: {}", size);
+}
+
+#[tauri::command]
+pub async fn set_chessdb(enabled: bool, timeout: Option<u64>) {
+    let state = SHARED_STATE.get().unwrap();
+    let mut config = state.config.write().unwrap();
+    let timeout = timeout.unwrap_or_else(|| config.engine.chessdb_timeout.min(1));
+    config.engine.chessdb_enabled = enabled;
+    config.engine.chessdb_timeout = timeout;
+    config.save();
+    debug!("set_chessdb: {} -> {}", enabled, timeout);
 }

@@ -24,6 +24,9 @@ interface EngineConfig {
     time: number;
     threads: number;
     hash: number;
+    show_wdl: number;
+    chessdb_enabled: boolean,
+    chessdb_timeout: number,
 }
 
 const mode = ref(options[0].value);
@@ -179,12 +182,17 @@ async function setEngineDepth() {
 async function setEngineTime() {
     await invoke("set_engine_time", { time: config.value.time });
 }
+
 async function setEngineThreads() {
     await invoke("set_engine_threads", { num: config.value.threads });
 }
 
 async function setEngineHash() {
     await invoke("set_engine_hash", { size: config.value.hash });
+}
+
+async function setChessdb() {
+    await invoke("set_chessdb", { enabled: false, timeout: 10 })
 }
 
 async function getEngineConfig() {

@@ -9,14 +9,6 @@ mod command;
 use tracing::debug;
 use tracing::trace;
 
-pub struct SearchParams {
-    pub fen: String,
-    pub depth: usize,
-    pub time: usize,
-    pub chessdb_enabled: bool,
-    pub chessdb_timeout: u64,
-}
-
 #[derive(Debug, serde::Serialize, Default, Clone)]
 pub struct QueryResult {
     pub depth: usize,       // 深度
@@ -30,13 +22,38 @@ pub struct QueryResult {
 
 const SOURCE_ENGINE: &str = "引擎";
 
-#[derive(Debug, serde::Serialize, Default, Clone)]
+#[derive(Debug, serde::Serialize, Default, Clone, Copy)]
 pub enum QueryState {
     Success,
     #[default]
     NotResult,
     InvalidBoard,
     ServerInternalError, // 内部错误
+}
+
+#[derive(Debug, serde::Serialize, Clone, serde::Deserialize, Copy)]
+pub struct EngineConfig {
+    pub depth: usize,
+    pub time: usize,
+    pub threads: usize,
+    pub hash: usize,
+    pub show_wdl: bool,
+    pub chessdb_enabled: bool,
+    pub chessdb_timeout: u64,
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        Self {
+            depth: 20,
+            time: 5000,
+            threads: 4,
+            hash: 64,
+            show_wdl: false,
+            chessdb_enabled: true,
+            chessdb_timeout: 5,
+        }
+    }
 }
 
 pub struct Engine {
@@ -65,6 +82,15 @@ impl Engine {
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
+    }
+
+    pub fn reload(&mut self, libs: &Path, config: &EngineConfig) {
+        self.child.kill().unwrap();
+        self.child.wait().unwrap();
+        *self = Self::new(libs);
+        self.set_hash(config.hash);
+        self.set_show_wdl(config.show_wdl);
+        self.set_threads(config.threads);
     }
 
     fn write_command<A: Display>(&mut self, args: A) {
@@ -155,10 +181,10 @@ impl Engine {
         pre_line
     }
 
-    pub async fn search(&mut self, params: &SearchParams) -> Option<QueryResult> {
+    pub async fn search(&mut self, fen: &str, params: &EngineConfig) -> Option<QueryResult> {
         let mut result = if params.chessdb_enabled {
             // 先查询云库
-            chessdb::query(&params.fen, params.chessdb_timeout).await
+            chessdb::query(fen, params.chessdb_timeout).await
         } else {
             QueryResult::default()
         };
@@ -168,7 +194,7 @@ impl Engine {
             QueryState::InvalidBoard => None,
             QueryState::ServerInternalError | QueryState::NotResult => {
                 // 查询云库失败调用引擎
-                self.position(&params.fen);
+                self.position(fen);
                 let best_line = self.bestmove(params.depth, params.time);
                 self.parse_line(best_line, &mut result);
                 Some(result)
@@ -202,21 +228,18 @@ mod tests {
         let result = chessdb::query(fen, 10).await;
         info!("{:?}", result);
     }
+
     #[tokio::test]
     async fn test_engine() {
         logger::init_tracer(Level::TRACE, &std::path::PathBuf::from("."));
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
-        let records = eng
-            .search(&SearchParams {
-                fen: fen.to_string(),
-                depth: 10,
-                time: 5,
-                chessdb_enabled: false,
-                chessdb_timeout: 10,
-            })
-            .await;
+        let cfg = EngineConfig {
+            chessdb_enabled: false,
+            ..Default::default()
+        };
+        let records = eng.search(fen, &cfg).await;
         info!("{:?}", records);
     }
 }
