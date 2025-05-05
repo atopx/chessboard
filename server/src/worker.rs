@@ -14,6 +14,7 @@ use xcap::image::Rgba;
 use crate::chess;
 use crate::common;
 use crate::engine::QueryResult;
+use crate::engine::SearchParams;
 use crate::listen::ListenWindow;
 use crate::listen::Window;
 use crate::yolo::predict;
@@ -65,13 +66,6 @@ impl AnalysisContext {
         }
     }
 
-    // 获取引擎分析深度和时间
-    fn get_engine_params(&self) -> (usize, usize) {
-        let state = SHARED_STATE.get().unwrap();
-        let config = state.config.read().unwrap();
-        (config.engine_depth, config.engine_time)
-    }
-
     // 检查是否需要终止分析线程
     fn should_stop(&self) -> bool {
         let state = SHARED_STATE.get().unwrap();
@@ -100,12 +94,17 @@ impl AnalysisContext {
         camp: &chess::Camp,
         board: [[char; 9]; 10],
     ) -> Option<BoardAnalysisResult> {
-        let (depth, time) = self.get_engine_params();
         let fen = chess::board_fen(camp, board);
-
+        let config = SHARED_STATE.get().unwrap().config.read().unwrap();
         let state = SHARED_STATE.get().unwrap();
         let mut engine = state.engine.lock().unwrap();
-        let result = block_on(engine.go(&fen, depth, time));
+        let result = block_on(engine.search(&SearchParams {
+            fen,
+            depth: config.engine_depth,
+            time: config.engine_time,
+            chessdb_enabled: config.chessdb_enabled,
+            chessdb_timeout: config.chessdb_timeout,
+        }));
         result.as_ref()?;
 
         let (expect_move, expect_board) = analyse(&self.app, result.unwrap(), board);

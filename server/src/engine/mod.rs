@@ -1,5 +1,5 @@
 pub mod chessdb;
-use std::fmt;
+use std::fmt::Display;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
@@ -8,6 +8,14 @@ mod command;
 
 use tracing::debug;
 use tracing::trace;
+
+pub struct SearchParams {
+    pub fen: String,
+    pub depth: usize,
+    pub time: usize,
+    pub chessdb_enabled: bool,
+    pub chessdb_timeout: u64,
+}
 
 #[derive(Debug, serde::Serialize, Default, Clone)]
 pub struct QueryResult {
@@ -32,7 +40,6 @@ pub enum QueryState {
 }
 
 pub struct Engine {
-    chessdb: bool,
     stdin: Box<dyn Write>,
     stdout: Box<dyn BufRead>,
     child: std::process::Child, // 添加子进程字段
@@ -51,7 +58,6 @@ impl Engine {
         let stdout = Box::new(BufReader::new(child.stdout.take().unwrap()));
 
         let mut eng = Engine {
-            chessdb: false,
             stdin,
             stdout,
             child,
@@ -61,11 +67,7 @@ impl Engine {
         eng
     }
 
-    pub fn set_chessdb(&mut self, open: bool) {
-        self.chessdb = open;
-    }
-
-    fn write_command<A: fmt::Display>(&mut self, args: A) {
+    fn write_command<A: Display>(&mut self, args: A) {
         writeln!(self.stdin, "{}", args).expect("write command error");
         self.stdin.flush().expect("write command flush error");
         debug!("{}", args);
@@ -83,7 +85,7 @@ impl Engine {
         self.setoption("Hash", size);
     }
 
-    pub fn setoption<T: fmt::Display>(&mut self, name: &str, value: T) {
+    pub fn setoption<T: Display>(&mut self, name: &str, value: T) {
         self.write_command(format!("setoption name {} value {}", name, value))
     }
 
@@ -153,20 +155,21 @@ impl Engine {
         pre_line
     }
 
-    pub async fn go(&mut self, fen: &str, depth: usize, time: usize) -> Option<QueryResult> {
-        // 先查询云库
-        let mut result = if self.chessdb {
-            chessdb::query(fen).await
+    pub async fn search(&mut self, params: &SearchParams) -> Option<QueryResult> {
+        let mut result = if params.chessdb_enabled {
+            // 先查询云库
+            chessdb::query(&params.fen, params.chessdb_timeout).await
         } else {
             QueryResult::default()
         };
+
         match result.state {
             QueryState::Success => Some(result),
             QueryState::InvalidBoard => None,
             QueryState::ServerInternalError | QueryState::NotResult => {
                 // 查询云库失败调用引擎
-                self.position(fen);
-                let best_line = self.bestmove(depth, time);
+                self.position(&params.fen);
+                let best_line = self.bestmove(params.depth, params.time);
                 self.parse_line(best_line, &mut result);
                 Some(result)
             }
@@ -196,7 +199,7 @@ mod tests {
     async fn test_query() {
         logger::init_tracer(Level::TRACE, &std::path::PathBuf::from("."));
         let fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b";
-        let result = chessdb::query(fen).await;
+        let result = chessdb::query(fen, 10).await;
         info!("{:?}", result);
     }
     #[tokio::test]
@@ -205,7 +208,15 @@ mod tests {
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
-        let records = eng.go(fen, 10, 1000).await;
+        let records = eng
+            .search(&SearchParams {
+                fen: fen.to_string(),
+                depth: 10,
+                time: 5,
+                chessdb_enabled: false,
+                chessdb_timeout: 10,
+            })
+            .await;
         info!("{:?}", records);
     }
 }

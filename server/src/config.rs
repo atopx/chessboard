@@ -22,7 +22,7 @@ pub struct Config {
     pub engine_threads: usize,
     pub engine_hash: usize,
     pub show_wdl: bool,
-    pub enable_chessdb: bool,
+    pub chessdb_enabled: bool,
     pub chessdb_timeout: u64,
     pub timer_interval: u64,
     pub confirm_interval: u64,
@@ -46,7 +46,7 @@ impl Config {
                 engine_threads: 4,
                 engine_hash: 64,
                 show_wdl: false,
-                enable_chessdb: true,
+                chessdb_enabled: true,
                 chessdb_timeout: 5,
                 timer_interval: 100,
                 confirm_interval: 300,
@@ -96,7 +96,13 @@ pub struct EngineConfig {
 
 #[tauri::command]
 pub fn get_engine_config() -> EngineConfig {
-    SHARED_STATE.get().unwrap().config.read().unwrap().get_engine_config()
+    SHARED_STATE
+        .get()
+        .unwrap()
+        .config
+        .read()
+        .unwrap()
+        .get_engine_config()
 }
 
 #[tauri::command]

@@ -39,7 +39,6 @@ pub fn run() {
                     .resolve("../libs/pikafish", BaseDirectory::Resource)
                     .unwrap();
                 let mut engine = engine::Engine::new(&lib_path);
-                engine.set_chessdb(config.enable_chessdb);
                 engine.set_show_wdl(config.show_wdl);
                 engine.set_hash(config.engine_hash);
                 engine.set_threads(config.engine_threads);
