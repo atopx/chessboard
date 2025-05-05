@@ -1,21 +1,42 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-import { NButton, NCard, NFlex, NForm, NFormItem, NInputNumber, NSelect, NDrawer, NDrawerContent, NSpace, NTooltip, NDivider, NEmpty, NScrollbar, NTag, NInput } from "naive-ui";
 import { onMounted, ref, h, computed } from "vue";
 import { useDialog } from "naive-ui";
+import {
+    NButton,
+    NCard,
+    NFlex,
+    NForm,
+    NFormItem,
+    NInputNumber,
+    NSelect,
+    NDrawer,
+    NDrawerContent,
+    NSpace,
+    NTooltip,
+    NDivider,
+    NEmpty,
+    NScrollbar,
+    NTag,
+    NInput,
+    NSwitch,
+} from "naive-ui";
 
 const options = [
     {
-        label: "人机对弈",
-        value: "Offline",
+        label: "连线分析",
+        value: "LinkAnaly",
+        disabled: false,
     },
     {
         label: "连线对战",
         value: "LinkPlay",
+        disabled: true,
     },
     {
-        label: "连线分析",
-        value: "LinkAnaly",
+        label: "人机对弈",
+        value: "Offline",
+        disabled: true,
     },
 ];
 
@@ -24,18 +45,20 @@ interface EngineConfig {
     time: number;
     threads: number;
     hash: number;
-    show_wdl: number;
-    chessdb_enabled: boolean,
-    chessdb_timeout: number,
+    // show_wdl: number;
+    chessdb_enabled: boolean;
+    chessdb_timeout: number;
 }
 
 const mode = ref(options[0].value);
 
-const config = ref({
-    depth: 24,
-    time: 3.0,
-    threads: 4,
-    hash: 1024,
+const config = ref<EngineConfig>({
+    depth: 0,
+    time: 0,
+    threads: 0,
+    hash: 0,
+    chessdb_enabled: false,
+    chessdb_timeout: 0,
 });
 
 const showEngineConfig = ref(false);
@@ -78,14 +101,13 @@ async function startListen() {
         }
 
         const selectedWindowId = ref<number | null>(null);
-        const searchQuery = ref('');
-        
+        const searchQuery = ref("");
+
         const filteredWindows = computed(() => {
             if (!searchQuery.value) return windows;
             const query = searchQuery.value.toLowerCase();
-            return windows.filter(w => 
-                w.title.toLowerCase().includes(query) || 
-                w.app_name.toLowerCase().includes(query)
+            return windows.filter(
+                (w) => w.title.toLowerCase().includes(query) || w.app_name.toLowerCase().includes(query)
             );
         });
 
@@ -93,49 +115,72 @@ async function startListen() {
         dialog.info({
             title: "选择要监听的窗口",
             class: "window-select-dialog",
-            content: () => h(NFlex, { vertical: true, style: "gap: 16px" }, [
-                h(NInput, {
-                    clearable: true,
-                    placeholder: "搜索窗口...",
-                    "onUpdate:value": (val) => searchQuery.value = val,
-                    style: "width: 100%",
-                }),
-                h(NScrollbar, { style: "max-height: 300px" }, [
-                    filteredWindows.value.length > 0 
-                        ? h(NSpace, { vertical: true, size: "small" }, 
-                            filteredWindows.value.map(w => 
-                                h(NCard, {
-                                    hoverable: true,
-                                    size: "small",
-                                    bordered: true,
-                                    class: selectedWindowId.value === w.id ? 'selected-window' : '',
-                                    onClick: () => selectedWindowId.value = w.id
-                                }, {
-                                    default: () => [
-                                        h(NFlex, { align: "center", justify: "space-between" }, [
-                                            h('div', [
-                                                h('div', { class: "window-title" }, w.title),
-                                                h('div', { class: "window-app" }, [
-                                                    w.app_name,
-                                                    h(NTag, { size: "tiny", type: "info", style: "margin-left: 8px" }, 
-                                                        { default: () => `${w.width}×${w.height}` }
-                                                    )
-                                                ])
-                                            ]),
-                                            h(NButton, {
-                                                tertiary: true,
-                                                circle: true,
-                                                type: selectedWindowId.value === w.id ? "primary" : "default",
-                                                size: "small"
-                                            }, { default: () => selectedWindowId.value === w.id ? "✓" : "" })
-                                        ])
-                                    ]
-                                })
-                            )
-                        )
-                        : h(NEmpty, { description: "没有找到匹配的窗口" })
-                ])
-            ]),
+            content: () =>
+                h(NFlex, { vertical: true, style: "gap: 16px" }, [
+                    h(NInput, {
+                        clearable: true,
+                        placeholder: "搜索窗口...",
+                        "onUpdate:value": (val) => (searchQuery.value = val),
+                        style: "width: 100%",
+                    }),
+                    h(NScrollbar, { style: "max-height: 300px" }, [
+                        filteredWindows.value.length > 0
+                            ? h(
+                                  NSpace,
+                                  { vertical: true, size: "small" },
+                                  filteredWindows.value.map((w) =>
+                                      h(
+                                          NCard,
+                                          {
+                                              hoverable: true,
+                                              size: "small",
+                                              bordered: true,
+                                              class: selectedWindowId.value === w.id ? "selected-window" : "",
+                                              onClick: () => (selectedWindowId.value = w.id),
+                                          },
+                                          {
+                                              default: () => [
+                                                  h(NFlex, { align: "center", justify: "space-between" }, [
+                                                      h("div", [
+                                                          h("div", { class: "window-title" }, w.title),
+                                                          h("div", { class: "window-app" }, [
+                                                              w.app_name,
+                                                              h(
+                                                                  NTag,
+                                                                  {
+                                                                      size: "tiny",
+                                                                      type: "info",
+                                                                      style: "margin-left: 8px",
+                                                                  },
+                                                                  { default: () => `${w.width}×${w.height}` }
+                                                              ),
+                                                          ]),
+                                                      ]),
+                                                      h(
+                                                          NButton,
+                                                          {
+                                                              tertiary: true,
+                                                              circle: true,
+                                                              type:
+                                                                  selectedWindowId.value === w.id
+                                                                      ? "primary"
+                                                                      : "default",
+                                                              size: "small",
+                                                          },
+                                                          {
+                                                              default: () =>
+                                                                  selectedWindowId.value === w.id ? "✓" : "",
+                                                          }
+                                                      ),
+                                                  ]),
+                                              ],
+                                          }
+                                      )
+                                  )
+                              )
+                            : h(NEmpty, { description: "没有找到匹配的窗口" }),
+                    ]),
+                ]),
             positiveText: "确定",
             negativeText: "取消",
             style: "max-width: 500px",
@@ -180,7 +225,7 @@ async function setEngineDepth() {
 }
 
 async function setEngineTime() {
-    await invoke("set_engine_time", { time: config.value.time });
+    await invoke("set_engine_time", { time: Math.round(config.value.time * 1000) });
 }
 
 async function setEngineThreads() {
@@ -192,22 +237,22 @@ async function setEngineHash() {
 }
 
 async function setChessdb() {
-    await invoke("set_chessdb", { enabled: false, timeout: 10 })
+    await invoke("set_chessdb", {
+        enabled: config.value.chessdb_enabled,
+        timeout: config.value.chessdb_timeout,
+    });
 }
 
 async function getEngineConfig() {
     let result: EngineConfig = await invoke("get_engine_config");
-    config.value = result;
+    config.value = {
+        ...result,
+        time: Number((result.time / 1000).toFixed(1)),
+    };
 }
 
 async function toggleEngine() {
-    if (isEngineRunning.value) {
-        await stopListen();
-        // isEngineRunning.value = false;
-    } else {
-        await startListen();
-        // isEngineRunning.value = true;
-    }
+    isEngineRunning.value ? await stopListen() : await startListen();
 }
 </script>
 
@@ -223,41 +268,43 @@ async function toggleEngine() {
                     placeholder="选择模式"
                     class="mode-select"
                 />
-                
+
                 <n-space>
                     <n-tooltip trigger="hover" placement="bottom">
                         <template #trigger>
-                            <n-button 
-                                circle 
-                                size="small" 
-                                :type="isEngineRunning ? 'error' : 'primary'" 
+                            <n-button
+                                circle
+                                size="small"
+                                :type="isEngineRunning ? 'error' : 'primary'"
                                 @click="toggleEngine"
                             >
-                                {{ isEngineRunning ? '停' : '启' }}
+                                {{ isEngineRunning ? "停" : "启" }}
                             </n-button>
                         </template>
-                        {{ isEngineRunning ? '停止引擎' : '启动引擎' }}
+                        {{ isEngineRunning ? "停止引擎" : "启动引擎" }}
                     </n-tooltip>
-                    
+
                     <n-tooltip trigger="hover" placement="bottom">
                         <template #trigger>
-                            <n-button circle size="small" type="info" @click="showEngineConfig = true">配</n-button>
+                            <n-button circle size="small" type="info" @click="showEngineConfig = true"
+                                >配</n-button
+                            >
                         </template>
                         引擎配置
                     </n-tooltip>
-                    
+
                     <n-divider vertical />
-                    
+
                     <n-tooltip trigger="hover" placement="bottom">
                         <template #trigger>
-                            <n-button circle size="small" type="success">识</n-button>
+                            <n-button circle size="small" type="success" disabled>识</n-button>
                         </template>
                         图片识别
                     </n-tooltip>
-                    
+
                     <n-tooltip trigger="hover" placement="bottom">
                         <template #trigger>
-                            <n-button circle size="small" type="warning" @click="copy_fen">复</n-button>
+                            <n-button circle size="small" type="warning" disabled @click="copy_fen">复</n-button>
                         </template>
                         复制局面
                     </n-tooltip>
@@ -310,6 +357,20 @@ async function toggleEngine() {
                             @update:value="setEngineHash"
                         />
                     </n-form-item>
+                    <n-form-item label="启用云库">
+                        <n-switch v-model:value="config.chessdb_enabled" @update:value="setChessdb" />
+                    </n-form-item>
+                    <n-form-item label="云库超时(s)">
+                        <n-input-number
+                            v-model:value="config.chessdb_timeout"
+                            :disabled="!config.chessdb_enabled"
+                            :min="1"
+                            :max="60"
+                            :step="1"
+                            style="width: 120px"
+                            @update:value="setChessdb"
+                        />
+                    </n-form-item>
                 </n-form>
             </n-drawer-content>
         </n-drawer>
@@ -320,7 +381,6 @@ async function toggleEngine() {
 .toolbar {
     width: 100%;
     padding: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
 }
 

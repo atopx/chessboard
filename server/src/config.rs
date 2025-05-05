@@ -37,19 +37,30 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load(path: &Path) -> Self {
-        let path = path.join("xqlink");
-        if !path.exists() {
-            let _ = fs::create_dir(&path);
+    pub fn load(base: &Path) -> Self {
+        let dir = base.join("xqlink");
+        if !dir.exists() {
+            let _ = fs::create_dir(&dir);
         };
 
-        let config_path = path.join("config.json");
+        let config_path = dir.join("config.json");
         debug!("load config from '{}'", config_path.display());
 
         if config_path.exists() {
-            let file = File::open(&config_path).unwrap();
-            let reader = BufReader::new(file);
-            if let Ok(config) = serde_json::from_reader(reader) {
+            let reader = BufReader::new(File::open(&config_path).unwrap());
+            if let Ok(mut config) = serde_json::from_reader::<_, Config>(reader) {
+                match config.config_path {
+                    Some(ref path) => {
+                        if path != &config_path {
+                            config.config_path = Some(config_path);
+                            config.save();
+                        }
+                    }
+                    None => {
+                        config.config_path = Some(config_path);
+                        config.save();
+                    }
+                };
                 return config;
             };
 

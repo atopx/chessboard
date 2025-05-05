@@ -5,9 +5,7 @@ use std::sync::RwLock;
 use std::thread;
 
 use engine::Engine;
-use tauri::path::BaseDirectory;
-use tauri::AppHandle;
-use tauri::Manager;
+use tauri::Manager as _;
 
 mod chess;
 mod common;
@@ -27,21 +25,6 @@ struct SharedState {
 
 static SHARED_STATE: OnceLock<SharedState> = OnceLock::new();
 
-#[tauri::command]
-fn reload_engine(app: AppHandle) {
-    let lib_path = app
-        .path()
-        .resolve("../libs/pikafish", BaseDirectory::Resource)
-        .unwrap();
-    let state = SHARED_STATE.get().unwrap();
-    let engine_config = state.config.read().unwrap().engine;
-    state
-        .engine
-        .lock()
-        .unwrap()
-        .reload(&lib_path, &engine_config);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -52,7 +35,7 @@ pub fn run() {
                 let config = config::Config::load(&app.path().config_dir().unwrap());
                 let lib_path = app
                     .path()
-                    .resolve("../libs/pikafish", BaseDirectory::Resource)
+                    .resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource)
                     .unwrap();
                 let mut engine = engine::Engine::new(&lib_path);
                 engine.set_show_wdl(config.engine.show_wdl);
@@ -83,4 +66,19 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn reload_engine(app: tauri::AppHandle) {
+    let lib_path = app
+        .path()
+        .resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource)
+        .unwrap();
+    let state = SHARED_STATE.get().unwrap();
+    let engine_config = state.config.read().unwrap().engine;
+    state
+        .engine
+        .lock()
+        .unwrap()
+        .reload(&lib_path, &engine_config);
 }

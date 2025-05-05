@@ -45,6 +45,10 @@ ort = { version = "=2.0.0-rc.9", features = ["cuda"] }
 [profile.dev]
 incremental = true
 
+[features]
+default = []
+rotate = []
+
 [profile.release]
 codegen-units = 1
 lto = true

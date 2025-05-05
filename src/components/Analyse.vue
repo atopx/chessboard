@@ -14,9 +14,9 @@ interface Analyse {
 }
 
 
-const logs = ref([""])
+const logs = ref<string[]>([])
 const best = ref({
-    move: "---",
+    move: "----",
     depth: 0,
     score: 0,
 })

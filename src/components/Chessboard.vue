@@ -3,6 +3,8 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { computed, onMounted, ref } from "vue";
 
+import "../assets/css/chessboard.css";
+
 
 interface Position {
     piece: string,

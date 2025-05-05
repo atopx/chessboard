@@ -40,7 +40,6 @@ enum ChessboardState {
 // 分析上下文，保存分析状态和共享数据
 struct AnalysisContext {
     app: AppHandle,
-    // state_for_thread: Arc<std::sync::Mutex<crate::AppState>>,
     window: ListenWindow,
     last_board: [[char; 9]; 10],
     expect_move: chess::Changed,
@@ -49,11 +48,7 @@ struct AnalysisContext {
 }
 
 impl AnalysisContext {
-    fn new(
-        app: AppHandle,
-        // state: Arc<std::sync::Mutex<crate::AppState>>,
-        window: ListenWindow,
-    ) -> Self {
+    fn new(app: AppHandle, window: ListenWindow) -> Self {
         Self {
             app,
             // state_for_thread: state,
@@ -266,7 +261,7 @@ fn process_analysis_loop(mut context: AnalysisContext) {
                                 context.handle_invalid_change(context.last_board, board, &camp)
                             }
                             chess::BoardChangeState::Unknown => {
-                                // 变化未知，重置UI
+                                debug!("棋局变化未知，重置上下文");
                                 context.update_ui(&camp, board);
                                 context.last_board = board;
                                 ChessboardState::Initial
@@ -370,8 +365,7 @@ fn process_analysis_loop(mut context: AnalysisContext) {
                                 context.handle_invalid_change(context.last_board, board, &camp)
                             }
                             chess::BoardChangeState::Unknown => {
-                                // 变化未知，重置UI
-                                debug!("棋局变化未知，重置UI");
+                                debug!("棋局变化未知，重置上下文");
                                 context.update_ui(&camp, board);
                                 context.last_board = board;
                                 ChessboardState::Initial
