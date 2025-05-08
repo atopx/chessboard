@@ -40,7 +40,7 @@ ort = { version = "=2.0.0-rc.9", features = ["cuda", "directml"] }
 ort = { version = "=2.0.0-rc.9", features = ["coreml"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-ort = { version = "=2.0.0-rc.9", features = ["cuda"] }
+ort = { version = "=2.0.0-rc.9", features = ["cuda", "load-dynamic"] }
 
 [profile.dev]
 incremental = true
