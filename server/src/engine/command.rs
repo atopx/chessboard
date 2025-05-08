@@ -8,9 +8,9 @@ pub fn new(libs: &std::path::Path) -> Child {
     Command::new(libs.join("pikafish-windows.exe"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .creation_flags(0x08000000)
         .spawn()
-        .expect("Unable to run engine");
+        .expect("Unable to run engine")
 }
 
 #[cfg(target_os = "macos")]

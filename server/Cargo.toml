@@ -34,7 +34,7 @@ tokio = { version = "1.44", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-ort = { version = "=2.0.0-rc.9", features = ["cuda", "directml"] }
+ort = { version = "=2.0.0-rc.9", features = ["cuda", "directml", "load-dynamic"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 ort = { version = "=2.0.0-rc.9", features = ["coreml"] }
