@@ -3,10 +3,10 @@
     "identifier": "top.itmeng.xqlink",
     "bundle": {
         "targets": "deb",
-        "resources": [
-            "../libs/pikafish/pikafish.nnue",
-            "../libs/pikafish/pikafish-linux",
-            "target/release/libonnxruntime*.so"
-        ]
+        "resources": {
+            "../libs/pikafish/pikafish.nnue": "../libs/pikafish/pikafish.nnue",
+            "../libs/pikafish/pikafish-linux": "../libs/pikafish/pikafish-linux",
+            "../libs/linux/libonnxruntime*.so": "./"
+        }
     }
 }

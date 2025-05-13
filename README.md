@@ -10,6 +10,10 @@
 
 B站：[https://www.bilibili.com/video/BV1TQVBzuE7C?t=3.4](https://www.bilibili.com/video/BV1TQVBzuE7C?t=3.4)
 
+## 下载安装
+
+[点击下载](https://github.com/atopx/chessboard/releases/latest)
+
 ## ✨ 功能亮点
 
 - ⚡ **轻量极速**  

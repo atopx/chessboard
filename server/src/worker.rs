@@ -47,6 +47,9 @@ struct AnalysisContext {
     invalid_change_count: usize,
 }
 
+unsafe impl Send for AnalysisContext {}
+unsafe impl Sync for AnalysisContext {}
+
 impl AnalysisContext {
     fn new(app: AppHandle, window: ListenWindow) -> Self {
         Self {
