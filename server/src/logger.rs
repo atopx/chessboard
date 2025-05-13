@@ -1,9 +1,9 @@
 use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
-use std::path::Path;
-use std::path::PathBuf;
 use tracing::Level;
 use tracing_appender::non_blocking;
 use tracing_appender::rolling;
@@ -13,30 +13,15 @@ use tracing_subscriber::registry;
 use tracing_subscriber::EnvFilter;
 
 #[cfg(target_os = "windows")]
-fn log_dir(home_dir: &Path) -> PathBuf {
-    home_dir
-        .join("AppData")
-        .join("Local")
-        .join("xqlink")
-        .join("logs")
-}
+fn log_dir(home_dir: &Path) -> PathBuf { home_dir.join("AppData").join("Local").join("xqlink").join("logs") }
 
 #[cfg(target_os = "macos")]
-fn log_dir(home_dir: &Path) -> PathBuf {
-    home_dir.join("Library").join("Logs").join("xqlink")
-}
+fn log_dir(home_dir: &Path) -> PathBuf { home_dir.join("Library").join("Logs").join("xqlink") }
 
 #[cfg(target_os = "linux")]
-fn log_dir(home_dir: &Path) -> PathBuf {
-    home_dir
-        .join(".local")
-        .join("share")
-        .join("xqlink")
-        .join("logs")
-}
+fn log_dir(home_dir: &Path) -> PathBuf { home_dir.join(".local").join("share").join("xqlink").join("logs") }
 
-static APPENDER_GUARD: OnceLock<Mutex<Option<tracing_appender::non_blocking::WorkerGuard>>> =
-    OnceLock::new();
+static APPENDER_GUARD: OnceLock<Mutex<Option<tracing_appender::non_blocking::WorkerGuard>>> = OnceLock::new();
 
 /// 初始化tracing库，设置全局订阅者
 pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
@@ -63,16 +48,10 @@ pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
     let (non_blocking_file, _guard) = non_blocking(file_appender);
 
     // 保存guard以确保日志写入器保持活跃
-    let _unused = APPENDER_GUARD
-        .get_or_init(|| Mutex::new(Some(_guard)))
-        .lock()
-        .unwrap();
+    let _unused = APPENDER_GUARD.get_or_init(|| Mutex::new(Some(_guard))).lock().unwrap();
 
     // 创建控制台输出层
-    let console_layer = tracing_subscriber::fmt::layer()
-        .with_span_events(FmtSpan::CLOSE)
-        .with_ansi(true)
-        .compact();
+    let console_layer = tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE).with_ansi(true).compact();
 
     // 创建文件输出层
     let file_layer = tracing_subscriber::fmt::layer()
@@ -82,9 +61,5 @@ pub fn init_tracer(level: Level, home_dir: &std::path::Path) {
         .compact();
 
     // 组装并设置订阅者
-    registry()
-        .with(filter)
-        .with(console_layer)
-        .with(file_layer)
-        .init();
+    registry().with(filter).with(console_layer).with(file_layer).init();
 }

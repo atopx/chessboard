@@ -69,10 +69,7 @@ impl Config {
             debug!("remove old config '{}'", config_path.display())
         }
 
-        let config = Config {
-            config_path: Some(config_path),
-            ..Default::default()
-        };
+        let config = Config { config_path: Some(config_path), ..Default::default() };
         config.save();
         config
     }
@@ -90,9 +87,7 @@ impl Config {
 }
 
 #[tauri::command]
-pub async fn get_engine_config() -> EngineConfig {
-    SHARED_STATE.get().unwrap().config.read().unwrap().engine
-}
+pub async fn get_engine_config() -> EngineConfig { SHARED_STATE.get().unwrap().config.read().unwrap().engine }
 
 #[tauri::command]
 pub async fn set_engine_depth(depth: usize) {

@@ -1,18 +1,14 @@
+use tracing::trace;
+
 use crate::chess;
 use crate::yolo;
-use tracing::trace;
 
 // detections_bound 获取截图的边界
 pub fn detections_bound(
-    origin_width: u32,
-    origin_height: u32,
-    detections: &[yolo::Detection],
+    origin_width: u32, origin_height: u32, detections: &[yolo::Detection],
 ) -> Result<(u32, u32, u32, u32), String> {
     // 找到棋盘（label == '0'）
-    let board_det = detections
-        .iter()
-        .find(|d| d.label == '0')
-        .ok_or("未识别到棋盘")?;
+    let board_det = detections.iter().find(|d| d.label == '0').ok_or("未识别到棋盘")?;
 
     // 计算模型图到原图的缩放
     let scale_x = origin_width as f32 / yolo::IMAGE_WIDTH as f32;
@@ -49,9 +45,7 @@ const MODEL_CELL_W: f32 = yolo::IMAGE_WIDTH as f32 / 9.0;
 const MODEL_CELL_H: f32 = yolo::IMAGE_HEIGHT as f32 / 10.0;
 
 // detections_to_board 识别结果转换为棋盘结构
-pub fn detections_to_board(
-    detections: &[yolo::Detection],
-) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
+pub fn detections_to_board(detections: &[yolo::Detection]) -> Result<(chess::Camp, [[char; 9]; 10]), String> {
     let mut camp = chess::Camp::None;
     let mut board = [[' '; 9]; 10];
 

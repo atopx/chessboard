@@ -33,10 +33,7 @@ pub fn run() {
 
             let _ = SHARED_STATE.get_or_init(|| {
                 let config = config::Config::load(&app.path().config_dir().unwrap());
-                let lib_path = app
-                    .path()
-                    .resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource)
-                    .unwrap();
+                let lib_path = app.path().resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource).unwrap();
                 let mut engine = engine::Engine::new(&lib_path);
                 engine.set_show_wdl(config.engine.show_wdl);
                 engine.set_hash(config.engine.hash);
@@ -70,15 +67,8 @@ pub fn run() {
 
 #[tauri::command]
 fn reload_engine(app: tauri::AppHandle) {
-    let lib_path = app
-        .path()
-        .resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource)
-        .unwrap();
+    let lib_path = app.path().resolve("../libs/pikafish", tauri::path::BaseDirectory::Resource).unwrap();
     let state = SHARED_STATE.get().unwrap();
     let engine_config = state.config.read().unwrap().engine;
-    state
-        .engine
-        .lock()
-        .unwrap()
-        .reload(&lib_path, &engine_config);
+    state.engine.lock().unwrap().reload(&lib_path, &engine_config);
 }

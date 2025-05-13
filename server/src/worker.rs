@@ -83,11 +83,7 @@ impl AnalysisContext {
     }
 
     // 分析棋盘并返回结果
-    fn analyze_board(
-        &mut self,
-        camp: &chess::Camp,
-        board: [[char; 9]; 10],
-    ) -> Option<BoardAnalysisResult> {
+    fn analyze_board(&mut self, camp: &chess::Camp, board: [[char; 9]; 10]) -> Option<BoardAnalysisResult> {
         let fen = chess::board_fen(camp, board);
         let config = SHARED_STATE.get().unwrap().config.read().unwrap();
         let state = SHARED_STATE.get().unwrap();
@@ -96,10 +92,7 @@ impl AnalysisContext {
         result.as_ref()?;
 
         let (expect_move, expect_board) = analyse(&self.app, result.unwrap(), board);
-        Some(BoardAnalysisResult {
-            expect_move,
-            expect_board,
-        })
+        Some(BoardAnalysisResult { expect_move, expect_board })
     }
 
     // 更新UI显示
@@ -110,16 +103,11 @@ impl AnalysisContext {
     }
 
     // 处理移动事件
-    fn handle_move(&mut self, changed: &chess::Changed) {
-        self.app.emit("move", changed).unwrap();
-    }
+    fn handle_move(&mut self, changed: &chess::Changed) { self.app.emit("move", changed).unwrap(); }
 
     // 处理错误变化计数
     fn handle_invalid_change(
-        &mut self,
-        last_board: [[char; 9]; 10],
-        board: [[char; 9]; 10],
-        camp: &chess::Camp,
+        &mut self, last_board: [[char; 9]; 10], board: [[char; 9]; 10], camp: &chess::Camp,
     ) -> ChessboardState {
         if self.invalid_change_count < 3 {
             self.invalid_change_count += 1;
@@ -147,11 +135,7 @@ pub fn get_board(image: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Option<(chess::Camp, 
     }
 }
 
-pub fn analyse(
-    app: &AppHandle,
-    mut result: QueryResult,
-    board: [[char; 9]; 10],
-) -> (chess::Changed, [[char; 9]; 10]) {
+pub fn analyse(app: &AppHandle, mut result: QueryResult, board: [[char; 9]; 10]) -> (chess::Changed, [[char; 9]; 10]) {
     // 引擎结果翻译为中文
     let best_pv = result.pvs.first().unwrap();
     let best_move = chess::board_move_chinese(board, best_pv);
@@ -185,13 +169,7 @@ fn process_analysis_loop(mut context: AnalysisContext) {
         }
 
         // 获取等待间隔
-        let interval = SHARED_STATE
-            .get()
-            .unwrap()
-            .config
-            .read()
-            .unwrap()
-            .timer_interval;
+        let interval = SHARED_STATE.get().unwrap().config.read().unwrap().timer_interval;
         thread::sleep(Duration::from_millis(interval));
 
         // 捕获并分析棋盘
@@ -318,13 +296,7 @@ fn process_analysis_loop(mut context: AnalysisContext) {
                     // 确认棋盘变化是否稳定
                     if !context.confirm_board(board) {
                         debug!("棋盘延迟确认失败");
-                        let confirm_interval = SHARED_STATE
-                            .get()
-                            .unwrap()
-                            .config
-                            .read()
-                            .unwrap()
-                            .confirm_interval;
+                        let confirm_interval = SHARED_STATE.get().unwrap().config.read().unwrap().confirm_interval;
                         thread::sleep(Duration::from_millis(confirm_interval));
                         current_state // 保持当前状态
                     } else if !chess::board_check(board) {
@@ -343,17 +315,11 @@ fn process_analysis_loop(mut context: AnalysisContext) {
 
                                 if camp.eq(&changed.camp) {
                                     // 我方移动，跳过分析
-                                    debug!(
-                                        "我方移动, {} -> {}, 跳过分析",
-                                        changed.from, changed.to
-                                    );
+                                    debug!("我方移动, {} -> {}, 跳过分析", changed.from, changed.to);
                                     ChessboardState::OurTurn
                                 } else {
                                     // 对方移动，需要分析
-                                    debug!(
-                                        "对方移动, {} -> {}, 需要分析",
-                                        changed.from, changed.to
-                                    );
+                                    debug!("对方移动, {} -> {}, 需要分析", changed.from, changed.to);
                                     if let Some(result) = context.analyze_board(&camp, board) {
                                         context.expect_move = result.expect_move;
                                         context.expect_board = result.expect_board;
@@ -387,13 +353,7 @@ fn process_analysis_loop(mut context: AnalysisContext) {
 #[tauri::command]
 pub async fn start_listen(app: AppHandle, target: Window) -> Result<(), String> {
     trace!("start_listen");
-    if SHARED_STATE
-        .get()
-        .unwrap()
-        .listen_thread
-        .try_lock()
-        .is_err()
-    {
+    if SHARED_STATE.get().unwrap().listen_thread.try_lock().is_err() {
         error!("current listen thread is running, please stop it first");
         return Err("已经在监听中".to_string());
     }
@@ -425,13 +385,7 @@ pub async fn start_listen(app: AppHandle, target: Window) -> Result<(), String> 
         process_analysis_loop(context);
     });
 
-    SHARED_STATE
-        .get()
-        .unwrap()
-        .listen_thread
-        .lock()
-        .unwrap()
-        .replace(listen_thread);
+    SHARED_STATE.get().unwrap().listen_thread.lock().unwrap().replace(listen_thread);
 
     Ok(())
 }

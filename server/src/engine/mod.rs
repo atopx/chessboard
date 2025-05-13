@@ -44,15 +44,7 @@ pub struct EngineConfig {
 
 impl Default for EngineConfig {
     fn default() -> Self {
-        Self {
-            depth: 20,
-            time: 5000,
-            threads: 4,
-            hash: 64,
-            show_wdl: false,
-            chessdb_enabled: true,
-            chessdb_timeout: 5,
-        }
+        Self { depth: 20, time: 5000, threads: 4, hash: 64, show_wdl: false, chessdb_enabled: true, chessdb_timeout: 5 }
     }
 }
 
@@ -74,11 +66,7 @@ impl Engine {
         let stdin = Box::new(child.stdin.take().unwrap());
         let stdout = Box::new(BufReader::new(child.stdout.take().unwrap()));
 
-        let mut eng = Engine {
-            stdin,
-            stdout,
-            child,
-        };
+        let mut eng = Engine { stdin, stdout, child };
         eng.setoption("EvalFile", nnue.display());
         eng.setoption("Sixty Move Rule", false);
         eng
@@ -99,25 +87,17 @@ impl Engine {
         debug!("{}", args);
     }
 
-    pub fn set_show_wdl(&mut self, open: bool) {
-        self.setoption("UCI_ShowWDL", open);
-    }
+    pub fn set_show_wdl(&mut self, open: bool) { self.setoption("UCI_ShowWDL", open); }
 
-    pub fn set_threads(&mut self, num: usize) {
-        self.setoption("Threads", num);
-    }
+    pub fn set_threads(&mut self, num: usize) { self.setoption("Threads", num); }
 
-    pub fn set_hash(&mut self, size: usize) {
-        self.setoption("Hash", size);
-    }
+    pub fn set_hash(&mut self, size: usize) { self.setoption("Hash", size); }
 
     pub fn setoption<T: Display>(&mut self, name: &str, value: T) {
         self.write_command(format!("setoption name {} value {}", name, value))
     }
 
-    pub fn position(&mut self, fen: &str) {
-        self.write_command(format!("position fen {}", fen))
-    }
+    pub fn position(&mut self, fen: &str) { self.write_command(format!("position fen {}", fen)) }
 
     fn read_line(&mut self) -> String {
         let mut line = String::new();
@@ -144,11 +124,7 @@ impl Engine {
                         }
                         "mate" => {
                             let round: isize = iter.next().unwrap().parse().unwrap();
-                            result.score = if round > 0 {
-                                30000 - round
-                            } else {
-                                -(30000 + round)
-                            };
+                            result.score = if round > 0 { 30000 - round } else { -(30000 + round) };
                         }
                         _ => {}
                     },
@@ -235,10 +211,7 @@ mod tests {
         let fen = "4k4/9/6r2/9/9/9/9/9/4A4/4K4 w";
         let libs = path::PathBuf::from("/Users/atopx/script/chessboard/libs");
         let mut eng = Engine::new(&libs);
-        let cfg = EngineConfig {
-            chessdb_enabled: false,
-            ..Default::default()
-        };
+        let cfg = EngineConfig { chessdb_enabled: false, ..Default::default() };
         let records = eng.search(fen, &cfg).await;
         info!("{:?}", records);
     }

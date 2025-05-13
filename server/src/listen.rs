@@ -19,13 +19,7 @@ impl Window {
         let app_name = win.app_name().unwrap();
         let width = win.width().unwrap();
         let height = win.height().unwrap();
-        Self {
-            id,
-            title,
-            app_name,
-            width,
-            height,
-        }
+        Self { id, title, app_name, width, height }
     }
 }
 
@@ -57,13 +51,7 @@ impl ListenWindow {
         let windows = xcap::Window::all().unwrap();
         for window in windows {
             if window.id().unwrap() == target.id {
-                return Some(Self {
-                    window,
-                    x: 0,
-                    y: 0,
-                    w: 0,
-                    h: 0,
-                });
+                return Some(Self { window, x: 0, y: 0, w: 0, h: 0 });
             }
         }
         None
