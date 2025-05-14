@@ -44,7 +44,7 @@ B站：[https://www.bilibili.com/video/BV1TQVBzuE7C?t=3.4](https://www.bilibili.
 - **桌面发行版**：Tauri（轻量化跨平台打包）
 
 ### 后端
-- **变成语言**：Rust  
+- **编程语言**：Rust  
 - **棋盘识别**：YOLOv8 + ONNX Runtime  
 - **象棋引擎**：Pikafish（高性能中国象棋引擎）  
 - **应用通信**：Tauri API
